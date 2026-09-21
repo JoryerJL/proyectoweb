@@ -1,0 +1,20 @@
+[project]
+name = "proyectoweb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Joryer Jimenez", email = "joryerjesus10@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "django>=6.1.1",
+    "psycopg>=3.3.6",
+]
+
+[project.scripts]
+proyectoweb = "proyectoweb:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
