@@ -6,10 +6,9 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
-from django.db.models import F
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render as _render
 
-from . import sample_data as datos
 from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
 
 
@@ -21,11 +20,12 @@ operador_required = user_passes_test(es_operador, login_url='home:login')
 
 
 def _comun():
-    return {'categorias': datos.CATEGORIAS, 'recientes': datos.PUBLICADAS[:3]}
-
-
-def _buscar(lista, id):
-    return next((item for item in lista if item.id == id), None)
+    publicadas = Q(publicacion__estado=Publicacion.ESTADO_PUBLICADO)
+    return {
+        'categorias': Categoria.objects.annotate(total=Count('publicacion', filter=publicadas)).order_by('nombre'),
+        'recientes': Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
+                                        .select_related('imagen_portada').order_by('-createdat')[:3],
+    }
 
 
 def render(request, template, contexto=None):
@@ -47,9 +47,12 @@ def guardar_archivo(upload, user):
 # Sitio público
 
 def index(request):
+    publicaciones = Publicacion.objects.filter(
+        estado=Publicacion.ESTADO_PUBLICADO,
+    ).select_related('categoria', 'autor', 'imagen_portada').order_by('-createdat')
     return render(request, 'home/index.html', {
-        'destacadas': [datos.PUBLICADAS[2], datos.PUBLICADAS[1], datos.PUBLICADAS[3]],
-        'publicaciones': datos.PUBLICADAS,
+        'slider': publicaciones[:3],
+        'publicaciones': publicaciones[:3],
     })
 
 
@@ -95,10 +98,21 @@ def noticia(request, pk=None):
 
 
 def categoria(request, pk=None):
-    seleccion = _buscar(datos.CATEGORIAS, pk or int(request.GET.get('id', 1) or 1))
+    categorias = Categoria.objects.all().order_by('nombre')
+    categoria_actual = get_object_or_404(Categoria, pk=pk) if pk else None
+    publicaciones = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO).select_related(
+        'categoria', 'autor', 'imagen_portada',
+    )
+    if categoria_actual:
+        publicaciones = publicaciones.filter(categoria=categoria_actual)
+    busqueda = request.GET.get('q', '').strip()
+    if busqueda:
+        publicaciones = publicaciones.filter(Q(titulo__icontains=busqueda) | Q(resumen__icontains=busqueda))
     return render(request, 'home/categoria.html', {
-        'categoria_actual': seleccion,
-        'publicaciones': [n for n in datos.PUBLICADAS if seleccion and n.categoria.id == seleccion.id],
+        'categorias': categorias,
+        'categoria_actual': categoria_actual,
+        'busqueda': busqueda,
+        'publicaciones': publicaciones.order_by('-createdat'),
     })
 
 
@@ -109,7 +123,8 @@ def contactanos(request):
     return render(request, 'home/contactanos.html')
 
 
-login = auth_views.LoginView.as_view(template_name='home/login.html', extra_context=_comun())
+def login(request):
+    return auth_views.LoginView.as_view(template_name='home/login.html', extra_context=_comun())(request)
 
 
 def sign_up(request):

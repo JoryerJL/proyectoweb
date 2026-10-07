@@ -38,8 +38,6 @@
                         <a href="{% url 'home:noticia_detalle' item.id %}">
                             {% if item.imagen_portada %}
                             <img src="{{ item.imagen_portada.display_url }}" alt="" loading="lazy">
-                            {% elif item.imagen %}
-                            <img src="{% static item.imagen %}" alt="" loading="lazy">
                             {% endif %}
                             <div>
                                 <h4>{{ item.titulo|truncatewords:8 }}</h4>

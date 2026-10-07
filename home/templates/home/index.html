@@ -5,15 +5,23 @@
 
 <section class="hero">
     <div class="container">
-        {% if destacadas %}
+        {% if slider %}
         <div class="featured" data-carousel aria-roledescription="carrusel" aria-label="Noticias destacadas">
-            {% for item in destacadas %}
-            <article class="featured-slide" {% if not forloop.first %}hidden{% endif %} aria-roledescription="diapositiva" aria-label="{{ forloop.counter }} de {{ destacadas|length }}">
+            {% for item in slider %}
+            <article class="featured-slide" {% if not forloop.first %}hidden{% endif %} aria-roledescription="diapositiva" aria-label="{{ forloop.counter }} de {{ slider|length }}">
                 <a href="{% url 'home:noticia_detalle' item.id %}" class="featured-media" tabindex="-1" aria-hidden="true">
-                    <img src="{% static item.imagen %}" alt="" {% if not forloop.first %}loading="lazy"{% endif %}>
+                    {% if item.imagen_portada %}
+                    <img src="{{ item.imagen_portada.display_url }}" alt="" {% if not forloop.first %}loading="lazy"{% endif %}>
+                    {% else %}
+                    <img src="{% static 'images/hero_1.jpg' %}" alt="" {% if not forloop.first %}loading="lazy"{% endif %}>
+                    {% endif %}
                 </a>
                 <div class="featured-body">
-                    <a href="{% url 'home:categoria' %}?id={{ item.categoria.id }}" class="chip">{{ item.categoria.nombre }}</a>
+                    {% if item.categoria %}
+                    <a href="{% url 'home:categoria_detalle' item.categoria.id %}" class="chip">{{ item.categoria.nombre }}</a>
+                    {% else %}
+                    <span class="chip">Sin categoría</span>
+                    {% endif %}
                     {% if forloop.first %}<h1>{% else %}<h2>{% endif %}<a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a>{% if forloop.first %}</h1>{% else %}</h2>{% endif %}
                     <p>{{ item.resumen }}</p>
                     <div class="featured-actions">
@@ -27,10 +35,10 @@
             </article>
             {% endfor %}
 
-            {% if destacadas|length > 1 %}
+            {% if slider|length > 1 %}
             <div class="carousel-controls">
                 <div class="carousel-dots">
-                    {% for item in destacadas %}
+                    {% for item in slider %}
                     <button type="button" aria-label="Ver noticia {{ forloop.counter }}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}"></button>
                     {% endfor %}
                 </div>
@@ -49,7 +57,7 @@
             <h2>Explora por tema</h2>
             <div class="chip-row">
                 {% for cat in categorias %}
-                <a class="chip" href="{% url 'home:categoria' %}?id={{ cat.id }}">{{ cat.nombre }} <small>{{ cat.total }}</small></a>
+                <a class="chip" href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }} <small>{{ cat.total }}</small></a>
                 {% endfor %}
             </div>
         </div>
@@ -72,10 +80,18 @@
             {% for item in publicaciones %}
             <article class="post-card">
                 <div class="post-card-media">
-                    <img src="{% static item.imagen %}" alt="" loading="lazy">
+                    {% if item.imagen_portada %}
+                    <img src="{{ item.imagen_portada.display_url }}" alt="" loading="lazy">
+                    {% else %}
+                    <img src="{% static 'images/hero_1.jpg' %}" alt="" loading="lazy">
+                    {% endif %}
                 </div>
                 <div class="post-card-body">
-                    <a href="{% url 'home:categoria' %}?id={{ item.categoria.id }}" class="chip">{{ item.categoria.nombre|default:"Sin categoría" }}</a>
+                    {% if item.categoria %}
+                    <a href="{% url 'home:categoria_detalle' item.categoria.id %}" class="chip">{{ item.categoria.nombre }}</a>
+                    {% else %}
+                    <span class="chip">Sin categoría</span>
+                    {% endif %}
                     <h3><a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a></h3>
                     <p>{{ item.resumen }}</p>
                     <div class="post-meta">

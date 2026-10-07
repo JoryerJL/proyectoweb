@@ -9,16 +9,23 @@
                 <nav class="breadcrumb" aria-label="Ruta" style="margin-bottom:.5rem">
                     <a href="{% url 'home:index' %}">Inicio</a>
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    {% if categoria_actual %}
+                    <a href="{% url 'home:categoria' %}">Categorías</a>
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    <span>{{ categoria_actual.nombre }}</span>
+                    {% else %}
                     <span>Categorías</span>
+                    {% endif %}
                 </nav>
-                <h1 class="posts-entry-title">{{ categoria_actual.nombre|default:"Todas las categorías" }}</h1>
-                <p>{{ publicaciones|length }} noticia{{ publicaciones|length|pluralize }} en este tema</p>
+                <h1 class="posts-entry-title">{% if busqueda %}Resultados para «{{ busqueda }}»{% else %}{{ categoria_actual.nombre|default:"Todas las noticias" }}{% endif %}</h1>
+                <p>{{ publicaciones|length }} noticia{{ publicaciones|length|pluralize }} {% if categoria_actual %}en este tema{% else %}publicada{{ publicaciones|length|pluralize }}{% endif %}</p>
             </div>
             <div class="field mb-0">
                 <label for="cambiar-categoria" class="visually-hidden">Cambiar de categoría</label>
-                <select id="cambiar-categoria" class="form-control" onchange="if (this.value) window.location = '{% url 'home:categoria' %}?id=' + this.value;">
+                <select id="cambiar-categoria" class="form-control" onchange="if (this.value) window.location.href = this.value;">
+                    <option value="{% url 'home:categoria' %}">Todas las categorías</option>
                     {% for cat in categorias %}
-                    <option value="{{ cat.id }}" {% if categoria_actual.id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                    <option value="{% url 'home:categoria_detalle' cat.id %}" {% if categoria_actual and categoria_actual.id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -28,9 +35,14 @@
         <div class="post-list">
             {% for item in publicaciones %}
             <article class="post-row">
-                <img src="{% static item.imagen %}" alt="" class="category-post-image" loading="lazy">
+                {% if item.imagen_portada %}
+                <img src="{{ item.imagen_portada.display_url }}" alt="" class="category-post-image" loading="lazy">
+                {% else %}
+                <img src="{% static 'images/hero_1.jpg' %}" alt="" class="category-post-image" loading="lazy">
+                {% endif %}
                 <div>
                     <div class="post-meta">
+                        {% if not categoria_actual %}<span><i class="bi bi-tag" aria-hidden="true"></i>{{ item.categoria.nombre|default:"Sin categoría" }}</span>{% endif %}
                         <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
                         <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }} visitas</span>
                     </div>
