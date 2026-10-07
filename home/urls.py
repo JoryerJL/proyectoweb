@@ -13,7 +13,7 @@ urlpatterns = [
     path("categoria/", views.categoria, name="categoria"),
     path("contactanos/", views.contactanos, name="contactanos"),
     path("login/", views.login, name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("logout/", auth_views.LogoutView.as_view(next_page="home:login"), name="logout"),
     path("sign_up/", views.sign_up, name="sign_up"),
 
     # Panel: perfil
@@ -42,7 +42,7 @@ urlpatterns = [
     # Panel: usuarios
     path("panel/usuarios/", views.crud_usuarios, name="crud_usuarios"),
     path("panel/usuarios/crear/", views.crear_usuario, name="crear_usuario"),
-    path("panel/usuarios/<int:id>/editar/", views.crear_usuario, name="editar_usuario"),
-    path("panel/usuarios/<int:id>/bloquear/", views.accion_pendiente, {"destino": "home:crud_usuarios"}, name="bloquear_usuario"),
-    path("panel/usuarios/<int:id>/eliminar/", views.accion_pendiente, {"destino": "home:crud_usuarios"}, name="eliminar_usuario"),
+    path("panel/usuarios/<int:pk>/editar/", views.editar_usuario, name="editar_usuario"),
+    path("panel/usuarios/<int:pk>/bloquear/", views.bloquear_usuario, name="bloquear_usuario"),
+    path("panel/usuarios/<int:pk>/eliminar/", views.eliminar_usuario, name="eliminar_usuario"),
 ]

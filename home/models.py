@@ -40,6 +40,12 @@ class Archivo(models.Model):
     def __str__(self):
         return self.nombre
 
+    @property
+    def display_url(self):
+        ruta = str(self.ruta)
+        if ruta.startswith(('images/', 'css/', 'js/', 'fonts/', 'uploads/profile-default')):
+            return f'/static/{ruta}'
+        return self.ruta.url
 
 
 class Perfil(models.Model):
