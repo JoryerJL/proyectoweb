@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -75,26 +76,14 @@ WSGI_APPLICATION = 'canaco.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', 'canaco'),
+        'USER': os.environ.get('DB_USER', 'canaco'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'canaco'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5434'),
     }
 }
-
-""" DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'canaco',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            "init_command": "SET NAMES utf8mb4; SET sql_mode='STRICT_TRANS_TABLES', default_storage_engine=INNODB",
-        },
-    }
-} """
 
 
 # Password validation

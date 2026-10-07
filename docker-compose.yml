@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:17
+    container_name: canaco_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: canaco
+      POSTGRES_USER: canaco
+      POSTGRES_PASSWORD: canaco
+    ports:
+      - "5434:5432"
+    volumes:
+      - canaco_pgdata:/var/lib/postgresql/data
+
+volumes:
+  canaco_pgdata:

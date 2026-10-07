@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía: Docker + PostgreSQL + Django (Laboratorio 08) — Canaco</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('tema');
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --card: #ffffff;
+    --text: #1d2433;
+    --muted: #5b6475;
+    --primary: #2457d6;
+    --primary-soft: #e8eefc;
+    --ok: #17803d;
+    --ok-soft: #e6f5ec;
+    --warn: #a15c00;
+    --warn-soft: #fdf3e2;
+    --danger: #b42318;
+    --danger-soft: #fdecea;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
+    --border: #e3e7ef;
+    --inline-code: #1b3d99;
+    --th-bg: #f1f4f9;
+    --diagram-bg: #f8fafc;
+    --diagram-border: #cbd5e1;
+    --details-bg: #fbfcfe;
+    --hero: linear-gradient(135deg, #2457d6, #3b82f6);
+    --radius: 14px;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #9aa5b5;
+    --primary: #6ea8ff;
+    --primary-soft: #1c2a44;
+    --ok: #3fb950;
+    --ok-soft: #12261a;
+    --warn: #e3a33b;
+    --warn-soft: #2b2112;
+    --danger: #f47067;
+    --danger-soft: #2d1517;
+    --code-bg: #0a0e14;
+    --code-text: #e2e8f0;
+    --border: #2a313c;
+    --inline-code: #a8c7ff;
+    --th-bg: #1d242e;
+    --diagram-bg: #0f141b;
+    --diagram-border: #3a4352;
+    --details-bg: #1a2029;
+    --hero: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+    color-scheme: dark;
+  }
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 10;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 14px; font: inherit; font-size: 14px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+  .theme-toggle:hover { border-color: var(--primary); }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 17px;
+  }
+  .layout { display: grid; grid-template-columns: 270px 1fr; min-height: 100vh; }
+  nav.toc {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: var(--card); border-right: 1px solid var(--border);
+    padding: 28px 20px;
+  }
+  nav.toc h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  nav.toc ol { padding-left: 20px; margin: 0; }
+  nav.toc li { margin: 6px 0; font-size: 15px; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--primary); text-decoration: underline; }
+  main { padding: 40px 56px 80px; max-width: 980px; }
+  header.hero {
+    background: var(--hero);
+    color: #fff; border-radius: var(--radius); padding: 36px 40px; margin-bottom: 36px;
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 32px; line-height: 1.2; }
+  header.hero p { margin: 0; opacity: .95; }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 34px; margin-bottom: 28px; }
+  h2 { font-size: 25px; margin: 0 0 14px; line-height: 1.3; }
+  h3 { font-size: 19px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  code { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: .9em; background: var(--primary-soft); color: var(--inline-code); padding: 2px 6px; border-radius: 6px; }
+  pre {
+    background: var(--code-bg); color: var(--code-text);
+    padding: 18px 20px; border-radius: 12px; overflow-x: auto;
+    font-size: 14.5px; line-height: 1.55; position: relative;
+  }
+  pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+  pre .c { color: #94a3b8; }
+  pre .k { color: #7dd3fc; }
+  pre .s { color: #86efac; }
+  .copy {
+    position: absolute; top: 10px; right: 10px;
+    background: #334155; color: #e2e8f0; border: 0; border-radius: 8px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  .copy:hover, .copy:focus-visible { background: #475569; }
+  .box { border-radius: 12px; padding: 14px 18px; margin: 16px 0; border-left: 5px solid; }
+  .box strong:first-child { display: block; margin-bottom: 4px; }
+  .tip { background: var(--ok-soft); border-color: var(--ok); }
+  .warn { background: var(--warn-soft); border-color: var(--warn); }
+  .danger { background: var(--danger-soft); border-color: var(--danger); }
+  .info { background: var(--primary-soft); border-color: var(--primary); }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 15.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--th-bg); }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps > li { counter-increment: step; position: relative; padding-left: 52px; margin: 18px 0; }
+  .steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: 0;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fff; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .diagram {
+    background: var(--diagram-bg); border: 1px dashed var(--diagram-border); border-radius: 12px;
+    padding: 18px; font-family: ui-monospace, Menlo, monospace; font-size: 14px;
+    white-space: pre; overflow-x: auto; line-height: 1.45;
+  }
+  details { border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; margin: 10px 0; background: var(--details-bg); }
+  summary { cursor: pointer; font-weight: 700; }
+  .pill { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); margin-right: 6px; }
+  :focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+    main { padding: 24px 18px 60px; }
+    section { padding: 22px 20px; }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" type="button" id="theme-toggle" aria-label="Cambiar tema"></button>
+<div class="layout">
+
+<nav class="toc" aria-label="Índice">
+  <h2>Índice</h2>
+  <ol>
+    <li><a href="#resumen">Resumen: qué hicimos</a></li>
+    <li><a href="#que-es-docker">¿Qué es Docker?</a></li>
+    <li><a href="#conceptos">Los 5 conceptos clave</a></li>
+    <li><a href="#puertos">Puertos (y por qué 5434)</a></li>
+    <li><a href="#compose">El archivo docker-compose.yml</a></li>
+    <li><a href="#levantar">Levantar el contenedor</a></li>
+    <li><a href="#settings">Conectar Django (settings.py)</a></li>
+    <li><a href="#modelos">Los modelos (models.py)</a></li>
+    <li><a href="#migraciones">Migraciones</a></li>
+    <li><a href="#superuser">Superusuario y admin</a></li>
+    <li><a href="#verificar">Verificar dentro de Postgres</a></li>
+    <li><a href="#diario">Tu rutina diaria</a></li>
+    <li><a href="#chuleta">Hoja de comandos</a></li>
+    <li><a href="#problemas">Problemas comunes</a></li>
+    <li><a href="#practica">Ejercicios para practicar</a></li>
+    <li><a href="#glosario">Glosario</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="hero">
+  <h1>Docker + PostgreSQL + Django</h1>
+  <p>Guía paso a paso de todo lo que hicimos en el <strong>Laboratorio 08</strong> del proyecto Canaco, explicada desde cero para que la entiendas y puedas repetirla tú solo.</p>
+</header>
+
+<!-- 1 -->
+<section id="resumen">
+  <h2>1. Resumen: qué hicimos</h2>
+  <p>El Laboratorio 08 pide conectar el proyecto a una base de datos real, crear las tablas y un usuario administrador. El PDF usa <strong>MySQL con XAMPP</strong>; nosotros usamos <strong>PostgreSQL dentro de Docker</strong>, que es lo que se usa mucho en la industria.</p>
+  <ol class="steps">
+    <li>Creamos <code>docker-compose.yml</code>: una "receta" que le dice a Docker que levante un servidor PostgreSQL.</li>
+    <li>Descubrimos que los puertos <code>5432</code> y <code>5433</code> ya los usaba tu Postgres local, así que elegimos el <code>5434</code>.</li>
+    <li>Arrancamos Docker Desktop y levantamos el contenedor con <code>docker compose up -d</code>.</li>
+    <li>Cambiamos <code>canaco/settings.py</code> para que Django use PostgreSQL en vez de SQLite.</li>
+    <li>Escribimos los 6 modelos del lab en <code>home/models.py</code>.</li>
+    <li>Generamos y aplicamos las migraciones (<code>makemigrations</code> y <code>migrate</code>), y con eso se crearon las tablas.</li>
+    <li>Creamos el superusuario <code>superadmin</code> para entrar al panel <code>/admin</code>.</li>
+    <li>Verificamos con <code>psql</code> que las tablas existen dentro del contenedor.</li>
+  </ol>
+</section>
+
+<!-- 2 -->
+<section id="que-es-docker">
+  <h2>2. ¿Qué es Docker?</h2>
+  <p>Imagina que quieres instalar PostgreSQL. Sin Docker tendrías que descargarlo, instalarlo en tu Mac, configurarlo, y si otro proyecto necesita otra versión… empiezan los conflictos (justo lo que ya tienes: Postgres 14 y 17 instalados con Homebrew peleando por puertos).</p>
+  <p><strong>Docker</strong> te deja correr programas dentro de <strong>cajas aisladas</strong> llamadas <em>contenedores</em>. Cada caja trae todo lo que el programa necesita y no toca el resto de tu computadora.</p>
+
+  <div class="box info">
+    <strong>Analogía</strong>
+    Piensa en un contenedor de barco. No importa si dentro hay plátanos o computadoras: el barco lo transporta igual. Docker hace lo mismo con programas: PostgreSQL, Redis, MySQL… todos se manejan con los mismos comandos.
+  </div>
+
+  <h3>¿Por qué es mejor que XAMPP o instalarlo directo?</h3>
+  <table>
+    <tr><th>Sin Docker</th><th>Con Docker</th></tr>
+    <tr><td>Instalas Postgres en tu Mac para siempre.</td><td>Lo prendes y apagas cuando quieras; si lo borras, tu Mac queda limpia.</td></tr>
+    <tr><td>Una sola versión a la vez (o conflictos).</td><td>Puedes tener Postgres 14, 16 y 17 en contenedores distintos sin problema.</td></tr>
+    <tr><td>Cada compañero lo configura distinto.</td><td>Todos usan el mismo <code>docker-compose.yml</code>, así que todos tienen exactamente lo mismo.</td></tr>
+    <tr><td>Configurar usuario/contraseña a mano.</td><td>Se declara en un archivo de texto y se crea solo.</td></tr>
+  </table>
+
+  <h3>Docker Desktop</h3>
+  <p>En Mac, Docker funciona a través de la app <strong>Docker Desktop</strong> (la ballena 🐳 en la barra de arriba). Esa app corre el "motor" de Docker (el <em>daemon</em>). <strong>Si Docker Desktop está cerrado, ningún comando <code>docker</code> funciona.</strong></p>
+  <p>Cuando empezamos, el comando <code>docker ps</code> dio este error:</p>
+  <pre><code>failed to connect to the docker API at unix:///Users/.../docker.sock
+... check if the daemon is running</code></pre>
+  <p>Eso significa "el motor no está prendido". Lo arreglamos abriendo la app:</p>
+  <pre><code>open -a Docker</code></pre>
+  <div class="box tip"><strong>Consejo</strong>Espera a que la ballena deje de animarse (unos 30–60 segundos la primera vez). Puedes comprobar que ya está listo con <code>docker info</code>: si no marca error, ya está.</div>
+</section>
+
+<!-- 3 -->
+<section id="conceptos">
+  <h2>3. Los 5 conceptos clave</h2>
+  <p>Con estos cinco conceptos entiendes el 90% de Docker para desarrollo:</p>
+
+  <h3><span class="pill">1</span>Imagen</h3>
+  <p>Es la <strong>plantilla</strong> o "molde" de solo lectura. Por ejemplo, la imagen <code>postgres:17</code> contiene PostgreSQL versión 17 ya instalado. Se descargan de <a href="https://hub.docker.com/_/postgres">Docker Hub</a>, una especie de "tienda" pública de imágenes.</p>
+  <p><code>postgres</code> es el nombre y <code>17</code> es la <strong>etiqueta</strong> (tag), que normalmente es la versión.</p>
+
+  <h3><span class="pill">2</span>Contenedor</h3>
+  <p>Es una <strong>copia en ejecución</strong> de una imagen. Si la imagen es la receta del pastel, el contenedor es el pastel. De una imagen puedes crear muchos contenedores. El nuestro se llama <code>canaco_db</code>.</p>
+
+  <h3><span class="pill">3</span>Volumen</h3>
+  <p>Los contenedores son <strong>desechables</strong>: si borras uno, todo lo que tenía adentro desaparece. Un <strong>volumen</strong> es una carpeta que Docker guarda <em>fuera</em> del contenedor para que los datos sobrevivan. Nuestro volumen se llama <code>canaco_pgdata</code> y ahí viven tus tablas y registros.</p>
+  <div class="box warn"><strong>Importante</strong>Sin volumen, cada vez que recrearas el contenedor perderías la base de datos completa (tablas, superusuario, noticias…).</div>
+
+  <h3><span class="pill">4</span>Puerto (port mapping)</h3>
+  <p>El contenedor es una caja cerrada. Para que Django (que corre en tu Mac) pueda hablar con Postgres (que corre dentro de la caja) hay que <strong>abrir una ventana</strong>: conectar un puerto de tu Mac con un puerto del contenedor. Lo vemos a detalle en la siguiente sección.</p>
+
+  <h3><span class="pill">5</span>Docker Compose</h3>
+  <p>En lugar de escribir un comando larguísimo para crear el contenedor, describimos todo en un archivo <code>docker-compose.yml</code> y lo levantamos con un solo comando: <code>docker compose up -d</code>.</p>
+
+  <div class="diagram">  docker-compose.yml  ──(docker compose up)──▶  descarga IMAGEN postgres:17
+                                                     │
+                                                     ▼
+                                          crea CONTENEDOR canaco_db
+                                          ├── datos en VOLUMEN canaco_pgdata
+                                          └── PUERTO 5434 (Mac) ─▶ 5432 (contenedor)</div>
+</section>
+
+<!-- 4 -->
+<section id="puertos">
+  <h2>4. Puertos (y por qué usamos 5434)</h2>
+  <p>Un <strong>puerto</strong> es como el número de departamento dentro de un edificio. Tu computadora es el edificio (dirección <code>localhost</code> o <code>127.0.0.1</code>) y cada programa que recibe conexiones vive en un "departamento" numerado:</p>
+  <ul>
+    <li>Django (runserver) → puerto <code>8000</code></li>
+    <li>PostgreSQL → puerto <code>5432</code> por defecto</li>
+    <li>MySQL → puerto <code>3306</code> por defecto</li>
+  </ul>
+  <p><strong>Regla de oro:</strong> dos programas no pueden escuchar en el mismo puerto al mismo tiempo.</p>
+
+  <h3>Lo que nos pasó</h3>
+  <p>Al primer intento, Django se conectó al puerto 5432 y respondió:</p>
+  <pre><code>FATAL:  role "canaco" does not exist</code></pre>
+  <p>¡Raro! Ni siquiera habíamos levantado el contenedor. Eso significaba que <strong>ya había otro Postgres</strong> en ese puerto. Lo investigamos así:</p>
+  <pre><code><span class="c"># ¿Quién está escuchando en el puerto 5432?</span>
+lsof -nP -iTCP:5432 -sTCP:LISTEN
+
+<span class="c"># ¿Qué servicios de Homebrew están corriendo?</span>
+brew services list</code></pre>
+  <p>Resultado: tenías <code>postgresql@14</code> y <code>postgresql@17</code> de Homebrew ocupando el 5432 y el 5433. En lugar de apagarlos (podrías usarlos en otros proyectos), buscamos un puerto libre:</p>
+  <pre><code>for p in 5432 5433 5434 5435; do
+  printf "$p: "
+  lsof -nP -iTCP:$p -sTCP:LISTEN &gt;/dev/null &amp;&amp; echo ocupado || echo libre
+done</code></pre>
+  <pre><code>5432: ocupado
+5433: ocupado
+5434: libre
+5435: libre</code></pre>
+
+  <h3>Cómo funciona el mapeo <code>"5434:5432"</code></h3>
+  <div class="diagram">     TU MAC                                 CONTENEDOR canaco_db
+ ┌──────────────────┐                   ┌──────────────────────┐
+ │ Django           │                   │                      │
+ │ se conecta a     │ ── localhost:5434 ─▶ 5432  PostgreSQL 17 │
+ │ localhost:5434   │                   │                      │
+ └──────────────────┘                   └──────────────────────┘
+   (5432 y 5433 siguen siendo de tus Postgres de Homebrew)</div>
+  <p>El formato siempre es <code>"PUERTO_EN_TU_MAC:PUERTO_DENTRO_DEL_CONTENEDOR"</code>. Dentro del contenedor Postgres sigue usando su 5432 normal; solo cambiamos la "puerta de entrada" en tu Mac.</p>
+  <div class="box tip"><strong>Para recordar</strong>Izquierda = afuera (tu Mac). Derecha = adentro (el contenedor).</div>
+</section>
+
+<!-- 5 -->
+<section id="compose">
+  <h2>5. El archivo <code>docker-compose.yml</code></h2>
+  <p>Está en la raíz del proyecto. Es un archivo <strong>YAML</strong>: un formato de texto donde la <strong>indentación (espacios) importa</strong>, igual que en Python. Nunca uses tabuladores, solo espacios.</p>
+  <pre><code><span class="k">services:</span>                          <span class="c"># lista de contenedores que queremos</span>
+  <span class="k">db:</span>                              <span class="c"># nombre del servicio (lo inventamos nosotros)</span>
+    <span class="k">image:</span> <span class="s">postgres:17</span>              <span class="c"># imagen a usar: PostgreSQL versión 17</span>
+    <span class="k">container_name:</span> <span class="s">canaco_db</span>      <span class="c"># nombre fijo del contenedor</span>
+    <span class="k">restart:</span> <span class="s">unless-stopped</span>       <span class="c"># si reinicias la Mac, se vuelve a prender solo</span>
+    <span class="k">environment:</span>                   <span class="c"># variables que configura la imagen de postgres</span>
+      <span class="k">POSTGRES_DB:</span> <span class="s">canaco</span>          <span class="c"># crea una base llamada canaco</span>
+      <span class="k">POSTGRES_USER:</span> <span class="s">canaco</span>        <span class="c"># crea el usuario canaco</span>
+      <span class="k">POSTGRES_PASSWORD:</span> <span class="s">canaco</span>    <span class="c"># con contraseña canaco</span>
+    <span class="k">ports:</span>
+      - <span class="s">"5434:5432"</span>                <span class="c"># puerto Mac 5434 ─▶ puerto contenedor 5432</span>
+    <span class="k">volumes:</span>
+      - <span class="s">canaco_pgdata:/var/lib/postgresql/data</span>  <span class="c"># donde Postgres guarda los datos</span>
+
+<span class="k">volumes:</span>
+  <span class="k">canaco_pgdata:</span>                   <span class="c"># declaramos el volumen con nombre</span></code></pre>
+
+  <h3>Línea por línea</h3>
+  <table>
+    <tr><th>Clave</th><th>Qué hace</th></tr>
+    <tr><td><code>services</code></td><td>Cada servicio se convierte en un contenedor. Aquí solo tenemos uno (<code>db</code>), pero más adelante podrías agregar otro, por ejemplo <code>redis</code>.</td></tr>
+    <tr><td><code>image</code></td><td>Qué imagen descargar de Docker Hub. La primera vez tarda porque descarga unos ~150 MB; después ya queda guardada.</td></tr>
+    <tr><td><code>container_name</code></td><td>Sin esto Docker inventaría un nombre como <code>proyectoweb-db-1</code>. Con nombre fijo es más fácil escribir comandos.</td></tr>
+    <tr><td><code>restart</code></td><td><code>unless-stopped</code>: arranca solo cuando abres Docker Desktop, a menos que tú lo hayas detenido a propósito.</td></tr>
+    <tr><td><code>environment</code></td><td>La imagen oficial de Postgres lee estas variables <strong>solo la primera vez</strong> (cuando el volumen está vacío) para crear la base y el usuario.</td></tr>
+    <tr><td><code>ports</code></td><td>El mapeo de puertos explicado arriba.</td></tr>
+    <tr><td><code>volumes</code> (dentro de db)</td><td>Conecta el volumen <code>canaco_pgdata</code> con la carpeta donde Postgres guarda sus archivos dentro del contenedor.</td></tr>
+    <tr><td><code>volumes</code> (al final)</td><td>Declara que ese volumen existe y lo administra Docker.</td></tr>
+  </table>
+
+  <div class="box warn"><strong>Ojo con las variables de environment</strong>Si después cambias <code>POSTGRES_PASSWORD</code> en el archivo, <strong>no se actualiza</strong>, porque el volumen ya tiene una base creada. Para que tome efecto tendrías que borrar el volumen (y con él los datos). Lo vemos en <a href="#problemas">Problemas comunes</a>.</div>
+  <div class="box danger"><strong>Seguridad</strong>Usuario y contraseña <code>canaco</code>/<code>canaco</code> están bien para desarrollo en tu computadora. En un servidor real nunca uses contraseñas así ni las subas a GitHub.</div>
+</section>
+
+<!-- 6 -->
+<section id="levantar">
+  <h2>6. Levantar el contenedor</h2>
+  <p>Desde la carpeta del proyecto (donde está el <code>docker-compose.yml</code>):</p>
+  <pre><code>cd ~/Documents/m4/repos/proyectoweb
+docker compose up -d</code></pre>
+  <ul>
+    <li><code>docker compose</code> es la herramienta que lee el archivo <code>docker-compose.yml</code>.</li>
+    <li><code>up</code> significa "crea y arranca todo lo que dice el archivo".</li>
+    <li><code>-d</code> (<em>detached</em>) lo deja corriendo en segundo plano y te devuelve la terminal. Sin <code>-d</code> verías los logs en vivo y al cerrar la terminal se apagaría.</li>
+  </ul>
+  <p>La salida fue:</p>
+  <pre><code> Volume proyectoweb_canaco_pgdata Created     <span class="c">← creó el volumen</span>
+ Container canaco_db Creating                <span class="c">← creó el contenedor</span>
+ Container canaco_db Created
+ Container canaco_db Starting
+ Container canaco_db Started                 <span class="c">← ¡corriendo!</span></code></pre>
+  <div class="box info"><strong>¿Por qué el volumen dice <code>proyectoweb_canaco_pgdata</code>?</strong>Compose le antepone el nombre de la carpeta del proyecto (<code>proyectoweb</code>) para no mezclar volúmenes de proyectos distintos.</div>
+
+  <h3>¿Ya está listo para recibir conexiones?</h3>
+  <p>Postgres tarda unos segundos en arrancar. Lo comprobamos con <code>pg_isready</code>, un programa que viene <em>dentro</em> del contenedor:</p>
+  <pre><code>docker exec canaco_db pg_isready -U canaco -d canaco</code></pre>
+  <p><code>docker exec</code> = "ejecuta este comando <strong>dentro</strong> del contenedor <code>canaco_db</code>". Si responde <code>accepting connections</code>, ya está.</p>
+
+  <h3>Ver que está corriendo</h3>
+  <pre><code>docker ps</code></pre>
+  <pre><code>NAMES       PORTS                      STATUS
+canaco_db   0.0.0.0:5434-&gt;5432/tcp     Up 22 seconds</code></pre>
+  <p>Aquí confirmas el nombre, el mapeo de puertos y que está <code>Up</code> (encendido). También lo puedes ver en la app Docker Desktop, en la pestaña <em>Containers</em>.</p>
+</section>
+
+<!-- 7 -->
+<section id="settings">
+  <h2>7. Conectar Django: <code>canaco/settings.py</code></h2>
+  <p>Django necesita saber <strong>qué base de datos usar y cómo llegar a ella</strong>. Antes usaba SQLite (un archivo, <code>db.sqlite3</code>). Lo cambiamos así:</p>
+  <pre><code><span class="k">import</span> os
+<span class="k">from</span> pathlib <span class="k">import</span> Path
+<span class="c"># ...</span>
+
+DATABASES = {
+    <span class="s">'default'</span>: {
+        <span class="s">'ENGINE'</span>: <span class="s">'django.db.backends.postgresql'</span>,
+        <span class="s">'NAME'</span>: os.environ.get(<span class="s">'DB_NAME'</span>, <span class="s">'canaco'</span>),
+        <span class="s">'USER'</span>: os.environ.get(<span class="s">'DB_USER'</span>, <span class="s">'canaco'</span>),
+        <span class="s">'PASSWORD'</span>: os.environ.get(<span class="s">'DB_PASSWORD'</span>, <span class="s">'canaco'</span>),
+        <span class="s">'HOST'</span>: os.environ.get(<span class="s">'DB_HOST'</span>, <span class="s">'localhost'</span>),
+        <span class="s">'PORT'</span>: os.environ.get(<span class="s">'DB_PORT'</span>, <span class="s">'5434'</span>),
+    }
+}</code></pre>
+
+  <table>
+    <tr><th>Clave</th><th>Valor</th><th>Debe coincidir con…</th></tr>
+    <tr><td><code>ENGINE</code></td><td><code>postgresql</code></td><td>El tipo de base de datos (antes era <code>sqlite3</code>; el lab usaba <code>mysql</code>).</td></tr>
+    <tr><td><code>NAME</code></td><td><code>canaco</code></td><td><code>POSTGRES_DB</code> del compose</td></tr>
+    <tr><td><code>USER</code></td><td><code>canaco</code></td><td><code>POSTGRES_USER</code></td></tr>
+    <tr><td><code>PASSWORD</code></td><td><code>canaco</code></td><td><code>POSTGRES_PASSWORD</code></td></tr>
+    <tr><td><code>HOST</code></td><td><code>localhost</code></td><td>Tu propia Mac (el contenedor publica el puerto ahí).</td></tr>
+    <tr><td><code>PORT</code></td><td><code>5434</code></td><td>El número de la <strong>izquierda</strong> en <code>"5434:5432"</code></td></tr>
+  </table>
+
+  <h3>¿Qué es <code>os.environ.get('DB_PORT', '5434')</code>?</h3>
+  <p>Lee una <strong>variable de entorno</strong> llamada <code>DB_PORT</code>. Si no existe, usa <code>'5434'</code> como valor por defecto. Así, si un compañero tiene la base en otro puerto, no edita el código, solo hace:</p>
+  <pre><code>DB_PORT=5435 python manage.py runserver</code></pre>
+
+  <h3>El "traductor": psycopg</h3>
+  <p>Python no sabe hablar con PostgreSQL por sí solo. Necesita un <strong>driver</strong> (conector). Para Postgres es <code>psycopg</code>, que ya estaba en tu <code>pyproject.toml</code>. Comprobamos que estuviera instalado:</p>
+  <pre><code>uv sync
+.venv/bin/python -c "import psycopg; print(psycopg.__version__)"
+<span class="c"># 3.3.6</span></code></pre>
+  <div class="box info"><strong>Comparación con el lab</strong>Con MySQL habrías necesitado el paquete <code>mysqlclient</code>. Con Postgres es <code>psycopg</code>. Todo lo demás de Django (modelos, migraciones, ORM) funciona exactamente igual: esa es la ventaja de Django.</div>
+</section>
+
+<!-- 8 -->
+<section id="modelos">
+  <h2>8. Los modelos: <code>home/models.py</code></h2>
+  <p>Un <strong>modelo</strong> es una clase de Python que representa una <strong>tabla</strong>. Cada atributo es una <strong>columna</strong>. Django lee tus modelos y escribe el SQL por ti.</p>
+  <pre><code><span class="k">class</span> Categoria(models.Model):          <span class="c"># ─▶ una tabla</span>
+    nombre = models.CharField(max_length=60)              <span class="c"># ─▶ columna VARCHAR(60)</span>
+    createdat = models.DateTimeField(auto_now_add=True)   <span class="c"># ─▶ fecha de creación automática</span>
+    updatedat = models.DateTimeField(null=True, blank=True)
+    fk_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    <span class="k">class</span> Meta:
+        managed = True               <span class="c"># Django crea/modifica esta tabla</span>
+        db_table = <span class="s">'categoria'</span>        <span class="c"># nombre real de la tabla en Postgres</span>
+        verbose_name_plural = <span class="s">'Categoria'</span>   <span class="c"># cómo se ve en /admin</span>
+
+    <span class="k">def</span> __str__(self):
+        <span class="k">return</span> self.nombre        <span class="c"># cómo se muestra un registro (en el admin, en print...)</span></code></pre>
+
+  <h3>Los 6 modelos y cómo se relacionan</h3>
+  <div class="diagram">  User (de Django)
+   │ 1 ── 1  Perfil ───────────▶ Archivo (foto_perfil)
+   │
+   ├─ 1 ── N  Categoria (fk_user = quién la creó)
+   │
+   ├─ 1 ── N  Publicacion ──▶ Categoria
+   │             │  └──────▶ Archivo (imagen_portada)
+   │             │
+   │             ├─ 1 ── N  GaleriaPublicacion ──▶ Archivo
+   │             └─ 1 ── N  Comentario
+   │
+   └─ 1 ── N  Comentario (user = quién comentó)</div>
+
+  <table>
+    <tr><th>Modelo</th><th>Tabla</th><th>Para qué sirve</th></tr>
+    <tr><td><code>Categoria</code></td><td><code>categoria</code></td><td>Secciones de noticias (Economía, Eventos…).</td></tr>
+    <tr><td><code>Archivo</code></td><td><code>archivo</code></td><td>Cualquier archivo subido (imágenes). Se guarda en <code>media/uploads/</code>.</td></tr>
+    <tr><td><code>Perfil</code></td><td><code>home_perfil</code></td><td>Datos extra del usuario: apellidos y foto.</td></tr>
+    <tr><td><code>Publicacion</code></td><td><code>publicacion</code></td><td>Las noticias: título, resumen, contenido, estado (borrador/publicado), visitas.</td></tr>
+    <tr><td><code>GaleriaPublicacion</code></td><td><code>galeria_publicacion</code></td><td>Varias imágenes extra por noticia.</td></tr>
+    <tr><td><code>Comentario</code></td><td><code>comentario</code></td><td>Comentarios con estado pendiente/aprobado/bloqueado.</td></tr>
+  </table>
+  <div class="box info"><strong>¿Por qué <code>home_perfil</code> y no <code>perfil</code>?</strong>El PDF no le pone <code>class Meta</code> con <code>db_table</code> al modelo <code>Perfil</code>. Cuando no lo indicas, Django nombra la tabla <code>nombreapp_nombremodelo</code>, o sea <code>home_perfil</code>.</div>
+
+  <h3>Tipos de campo que aparecen</h3>
+  <table>
+    <tr><th>Campo</th><th>Qué guarda</th></tr>
+    <tr><td><code>CharField(max_length=N)</code></td><td>Texto corto con límite.</td></tr>
+    <tr><td><code>TextField()</code></td><td>Texto largo sin límite (contenido de una noticia).</td></tr>
+    <tr><td><code>DateTimeField(auto_now_add=True)</code></td><td>Fecha que se pone sola <strong>al crear</strong>.</td></tr>
+    <tr><td><code>DateTimeField(auto_now=True)</code></td><td>Fecha que se actualiza sola <strong>cada vez que guardas</strong>.</td></tr>
+    <tr><td><code>PositiveIntegerField(default=0)</code></td><td>Número entero ≥ 0 (visitas, tamaño).</td></tr>
+    <tr><td><code>FileField(upload_to='uploads/')</code></td><td>Ruta de un archivo subido.</td></tr>
+    <tr><td><code>ForeignKey(Modelo, ...)</code></td><td>Relación "muchos a uno" (muchas noticias → una categoría).</td></tr>
+    <tr><td><code>OneToOneField(User, ...)</code></td><td>Relación "uno a uno" (un usuario → un perfil).</td></tr>
+  </table>
+
+  <h3><code>on_delete</code>: ¿qué pasa si borro al "padre"?</h3>
+  <ul>
+    <li><code>CASCADE</code>: borra también a los hijos. Si borras una publicación, se borran sus comentarios.</li>
+    <li><code>SET_NULL</code>: deja el campo vacío. Si borras una categoría, sus noticias quedan "sin categoría" (por eso necesita <code>null=True</code>).</li>
+  </ul>
+
+  <h3><code>choices</code>: valores permitidos</h3>
+  <pre><code>ESTADOS = [
+    (<span class="s">'borrador'</span>, <span class="s">'Borrador'</span>),     <span class="c"># (lo que se guarda en la BD, lo que ve el usuario)</span>
+    (<span class="s">'publicado'</span>, <span class="s">'Publicado'</span>),
+]
+estado = models.CharField(max_length=20, choices=ESTADOS, default=<span class="s">'borrador'</span>)</code></pre>
+</section>
+
+<!-- 9 -->
+<section id="migraciones">
+  <h2>9. Migraciones</h2>
+  <p>Escribir el modelo <strong>no crea la tabla</strong>. Hay dos pasos:</p>
+  <div class="diagram">  models.py  ──makemigrations──▶  home/migrations/0001_initial.py  ──migrate──▶  tablas en Postgres
+  (tu código)                       (instrucciones: "plan de obra")                 (la obra hecha)</div>
+
+  <h3>Paso 1: <code>makemigrations</code> — escribir el plan</h3>
+  <pre><code>.venv/bin/python manage.py makemigrations home</code></pre>
+  <pre><code>Migrations for 'home':
+  home/migrations/0001_initial.py
+    + Create model Archivo
+    + Create model Categoria
+    + Create model Perfil
+    + Create model Publicacion
+    + Create model GaleriaPublicacion
+    + Create model Comentario</code></pre>
+  <p>Django comparó tus modelos con las migraciones anteriores (no había ninguna) y generó el archivo <code>0001_initial.py</code>. <strong>Este archivo sí se sube a Git</strong>, porque es el historial de cambios de tu base de datos.</p>
+
+  <h3>Paso 2: <code>migrate</code> — ejecutar el plan</h3>
+  <pre><code>.venv/bin/python manage.py migrate</code></pre>
+  <pre><code>  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  ...
+  Applying home.0001_initial... OK
+  Applying sessions.0001_initial... OK</code></pre>
+  <p>Aplicó las migraciones de Django (usuarios, sesiones, admin…) <strong>y</strong> la nuestra (<code>home.0001_initial</code>). Django guarda cuáles ya aplicó en la tabla <code>django_migrations</code>, así que si lo corres otra vez no repite nada.</p>
+  <div class="box tip"><strong>Regla para el futuro</strong>Cada vez que cambies <code>models.py</code> (agregar un campo, una tabla, etc.): <code>makemigrations</code> y luego <code>migrate</code>. Siempre en ese orden.</div>
+</section>
+
+<!-- 10 -->
+<section id="superuser">
+  <h2>10. Superusuario y panel <code>/admin</code></h2>
+  <p>El lab pide crear un usuario con todos los permisos. La forma interactiva (te va preguntando) es:</p>
+  <pre><code>.venv/bin/python manage.py createsuperuser</code></pre>
+  <p>Nosotros lo hicimos en una sola línea, sin preguntas, pasando la contraseña como variable de entorno:</p>
+  <pre><code>DJANGO_SUPERUSER_PASSWORD=superadmin \
+  .venv/bin/python manage.py createsuperuser --noinput \
+  --username superadmin --email superadmin@gmail.com</code></pre>
+  <table>
+    <tr><th>Usuario</th><td><code>superadmin</code></td></tr>
+    <tr><th>Contraseña</th><td><code>superadmin</code></td></tr>
+    <tr><th>Correo</th><td><code>superadmin@gmail.com</code></td></tr>
+  </table>
+  <p>Para entrar al panel:</p>
+  <pre><code>.venv/bin/python manage.py runserver</code></pre>
+  <p>Y abre <a href="http://127.0.0.1:8000/admin">http://127.0.0.1:8000/admin</a>.</p>
+  <div class="box info"><strong>¿Por qué no veo Categorías ni Publicaciones en /admin?</strong>Porque el Laboratorio 08 no registra los modelos en <code>home/admin.py</code>. Por ahora solo verás Usuarios y Grupos. Si quieres verlos, se agregan con <code>admin.site.register(Categoria)</code>.</div>
+</section>
+
+<!-- 11 -->
+<section id="verificar">
+  <h2>11. Verificar dentro de Postgres (el "phpMyAdmin" de la terminal)</h2>
+  <p>El lab usa phpMyAdmin para ver las tablas. Con Postgres podemos usar <code>psql</code>, la consola oficial, que ya viene <strong>dentro</strong> del contenedor.</p>
+  <h3>Comando rápido (una sola consulta)</h3>
+  <pre><code>docker exec canaco_db psql -U canaco -d canaco -c "\dt"</code></pre>
+  <ul>
+    <li><code>docker exec canaco_db</code>: ejecuta algo dentro del contenedor.</li>
+    <li><code>psql -U canaco -d canaco</code>: entra a Postgres con el usuario <code>canaco</code> a la base <code>canaco</code>.</li>
+    <li><code>-c "\dt"</code>: ejecuta el comando <code>\dt</code>, que lista las tablas (<em>describe tables</em>).</li>
+  </ul>
+  <pre><code> public | archivo                    | table | canaco
+ public | categoria                  | table | canaco
+ public | comentario                 | table | canaco
+ public | galeria_publicacion        | table | canaco
+ public | home_perfil                | table | canaco
+ public | publicacion                | table | canaco
+ ...y las de Django: auth_user, django_session, etc.</code></pre>
+
+  <h3>Modo interactivo</h3>
+  <pre><code>docker exec -it canaco_db psql -U canaco -d canaco</code></pre>
+  <p><code>-it</code> = interactivo con terminal. Ahora puedes escribir SQL directamente:</p>
+  <pre><code>canaco=# \dt                              <span class="c">-- listar tablas</span>
+canaco=# \d publicacion                   <span class="c">-- ver columnas de una tabla</span>
+canaco=# SELECT username, email FROM auth_user;
+canaco=# \q                               <span class="c">-- salir</span></code></pre>
+
+  <div class="box tip"><strong>¿Prefieres algo visual como phpMyAdmin?</strong>Puedes usar <strong>TablePlus</strong>, <strong>DBeaver</strong> o <strong>pgAdmin</strong> (o la pestaña Database de PyCharm). Conéctate con: host <code>localhost</code>, puerto <code>5434</code>, usuario <code>canaco</code>, contraseña <code>canaco</code>, base <code>canaco</code>.</div>
+</section>
+
+<!-- 12 -->
+<section id="diario">
+  <h2>12. Tu rutina diaria</h2>
+  <ol class="steps">
+    <li><strong>Abre Docker Desktop</strong> (o <code>open -a Docker</code>) y espera a que esté listo.</li>
+    <li><strong>Levanta la base</strong> (si ya está corriendo no pasa nada, solo dice "Running"):
+      <pre><code>cd ~/Documents/m4/repos/proyectoweb
+docker compose up -d</code></pre></li>
+    <li><strong>Arranca Django</strong>:
+      <pre><code>.venv/bin/python manage.py runserver</code></pre></li>
+    <li><strong>Al terminar</strong> (opcional, para liberar memoria):
+      <pre><code>docker compose stop</code></pre></li>
+  </ol>
+  <div class="box info"><strong>¿Y si reinicio la Mac?</strong>Gracias a <code>restart: unless-stopped</code>, el contenedor se prende solo cuando abres Docker Desktop (salvo que lo hayas detenido con <code>stop</code>). Tus datos siguen ahí porque viven en el volumen.</div>
+</section>
+
+<!-- 13 -->
+<section id="chuleta">
+  <h2>13. Hoja de comandos (chuleta)</h2>
+  <h3>Docker Compose (ejecutar en la carpeta del proyecto)</h3>
+  <table>
+    <tr><th>Comando</th><th>Qué hace</th><th>¿Borra datos?</th></tr>
+    <tr><td><code>docker compose up -d</code></td><td>Crea (si no existe) y arranca el contenedor.</td><td>No</td></tr>
+    <tr><td><code>docker compose stop</code></td><td>Apaga el contenedor sin borrarlo.</td><td>No</td></tr>
+    <tr><td><code>docker compose start</code></td><td>Prende un contenedor apagado.</td><td>No</td></tr>
+    <tr><td><code>docker compose down</code></td><td>Apaga <strong>y borra</strong> el contenedor (el volumen se queda).</td><td>No</td></tr>
+    <tr><td><code>docker compose down -v</code></td><td>Borra contenedor <strong>y volumen</strong>.</td><td style="color:var(--danger);font-weight:700">¡Sí, todo!</td></tr>
+    <tr><td><code>docker compose ps</code></td><td>Estado de los servicios del proyecto.</td><td>No</td></tr>
+    <tr><td><code>docker compose logs -f db</code></td><td>Ver los mensajes de Postgres en vivo (Ctrl+C para salir).</td><td>No</td></tr>
+  </table>
+
+  <h3>Docker general</h3>
+  <table>
+    <tr><th>Comando</th><th>Qué hace</th></tr>
+    <tr><td><code>docker info</code></td><td>¿Está prendido el motor de Docker?</td></tr>
+    <tr><td><code>docker ps</code></td><td>Contenedores corriendo. Con <code>-a</code> también los apagados.</td></tr>
+    <tr><td><code>docker images</code></td><td>Imágenes descargadas.</td></tr>
+    <tr><td><code>docker volume ls</code></td><td>Volúmenes existentes.</td></tr>
+    <tr><td><code>docker exec -it canaco_db bash</code></td><td>Abrir una terminal <em>dentro</em> del contenedor (<code>exit</code> para salir).</td></tr>
+    <tr><td><code>docker exec -it canaco_db psql -U canaco -d canaco</code></td><td>Consola SQL de Postgres.</td></tr>
+  </table>
+
+  <h3>Django</h3>
+  <table>
+    <tr><th>Comando</th><th>Cuándo</th></tr>
+    <tr><td><code>python manage.py makemigrations</code></td><td>Después de cambiar <code>models.py</code>.</td></tr>
+    <tr><td><code>python manage.py migrate</code></td><td>Para aplicar las migraciones a la BD.</td></tr>
+    <tr><td><code>python manage.py showmigrations</code></td><td>Ver cuáles están aplicadas (<code>[X]</code>) y cuáles no (<code>[ ]</code>).</td></tr>
+    <tr><td><code>python manage.py createsuperuser</code></td><td>Crear un administrador.</td></tr>
+    <tr><td><code>python manage.py dbshell</code></td><td>Abrir la consola SQL usando los datos de <code>settings.py</code>. Requiere tener <code>psql</code> instalado en tu Mac; si no, usa la versión de <code>docker exec</code>.</td></tr>
+  </table>
+  <p>Recuerda que <code>python</code> aquí es <code>.venv/bin/python</code>, o activa el entorno primero con <code>source .venv/bin/activate</code>.</p>
+</section>
+
+<!-- 14 -->
+<section id="problemas">
+  <h2>14. Problemas comunes y cómo resolverlos</h2>
+
+  <details>
+    <summary>"failed to connect to the docker API… is the daemon running?"</summary>
+    <p>Docker Desktop está cerrado. Ábrelo con <code>open -a Docker</code> y espera a que <code>docker info</code> funcione.</p>
+  </details>
+
+  <details>
+    <summary>"port is already allocated" o "address already in use" al hacer <code>up</code></summary>
+    <p>Otro programa ya usa ese puerto. Revisa quién con <code>lsof -nP -iTCP:5434 -sTCP:LISTEN</code>. Cambia el número de la izquierda en <code>ports</code> (por ejemplo <code>"5435:5432"</code>) y también <code>PORT</code> en <code>settings.py</code>. Luego <code>docker compose up -d</code> de nuevo.</p>
+  </details>
+
+  <details>
+    <summary>Django dice: "role 'canaco' does not exist"</summary>
+    <p>Te estás conectando a <strong>otro</strong> Postgres (por ejemplo el de Homebrew en 5432), no al del contenedor. Revisa que <code>PORT</code> en <code>settings.py</code> sea <code>5434</code> y que no tengas una variable <code>DB_PORT</code> distinta en tu terminal (<code>echo $DB_PORT</code>).</p>
+  </details>
+
+  <details>
+    <summary>Django dice: "connection refused" en el puerto 5434</summary>
+    <p>El contenedor no está corriendo. Revisa con <code>docker ps</code>. Si no aparece, <code>docker compose up -d</code>. Si aparece pero acaba de arrancar, espera unos segundos (<code>pg_isready</code>).</p>
+  </details>
+
+  <details>
+    <summary>Cambié la contraseña en docker-compose.yml y ahora no conecta</summary>
+    <p>Las variables <code>POSTGRES_*</code> solo se usan al crear el volumen la primera vez. Tienes dos opciones:</p>
+    <ul>
+      <li>Regresar la contraseña anterior en el archivo, o</li>
+      <li>Empezar de cero <strong>(borra todos los datos)</strong>: <code>docker compose down -v</code>, luego <code>docker compose up -d</code>, <code>migrate</code> y <code>createsuperuser</code> otra vez.</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Quiero reiniciar la base desde cero</summary>
+    <pre><code>docker compose down -v          <span class="c"># borra contenedor y datos</span>
+docker compose up -d            <span class="c"># base nueva y vacía</span>
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py createsuperuser</code></pre>
+  </details>
+
+  <details>
+    <summary>¿Qué pasa con el archivo db.sqlite3?</summary>
+    <p>Ya no se usa. Era la base anterior. Puedes dejarlo o borrarlo; Django ahora solo habla con Postgres.</p>
+  </details>
+</section>
+
+<!-- 15 -->
+<section id="practica">
+  <h2>15. Ejercicios para practicar</h2>
+  <p>Hazlos en orden. Ninguno borra datos, salvo que se indique.</p>
+  <ol class="steps">
+    <li>Ejecuta <code>docker ps</code> e identifica el nombre, el puerto y el estado de tu contenedor.</li>
+    <li>Apágalo con <code>docker compose stop</code>, intenta abrir <code>/admin</code> y observa el error. Luego préndelo con <code>docker compose start</code> y vuelve a probar.</li>
+    <li>Entra a la consola SQL con <code>docker exec -it canaco_db psql -U canaco -d canaco</code> y ejecuta <code>\d categoria</code>. Compara las columnas con el modelo <code>Categoria</code>.</li>
+    <li>Inserta una categoría a mano:
+      <pre><code>INSERT INTO categoria (nombre, createdat) VALUES ('Economía', now());
+SELECT * FROM categoria;</code></pre></li>
+    <li>Ve los logs de Postgres con <code>docker compose logs -f db</code> mientras recargas una página de Django.</li>
+    <li>Ejecuta <code>python manage.py showmigrations home</code> y fíjate en la <code>[X]</code> de <code>0001_initial</code>.</li>
+    <li><strong>Reto</strong>: haz <code>docker compose down</code> (sin <code>-v</code>) y luego <code>up -d</code>. Comprueba que tu categoría y el <code>superadmin</code> siguen ahí. Eso demuestra que el volumen funciona.</li>
+  </ol>
+</section>
+
+<!-- 16 -->
+<section id="glosario">
+  <h2>16. Glosario</h2>
+  <table>
+    <tr><th>Término</th><th>Significado</th></tr>
+    <tr><td>Docker</td><td>Herramienta para correr programas en contenedores aislados.</td></tr>
+    <tr><td>Docker Desktop</td><td>App de Mac/Windows que incluye y prende el motor de Docker.</td></tr>
+    <tr><td>Daemon</td><td>El "motor" de Docker que corre en segundo plano.</td></tr>
+    <tr><td>Imagen</td><td>Plantilla de solo lectura (ej. <code>postgres:17</code>).</td></tr>
+    <tr><td>Tag</td><td>Etiqueta de versión de una imagen (el <code>17</code> de <code>postgres:17</code>).</td></tr>
+    <tr><td>Contenedor</td><td>Instancia en ejecución de una imagen.</td></tr>
+    <tr><td>Volumen</td><td>Almacenamiento persistente fuera del contenedor.</td></tr>
+    <tr><td>Port mapping</td><td>Conectar un puerto de tu Mac con uno del contenedor (<code>"5434:5432"</code>).</td></tr>
+    <tr><td>Docker Hub</td><td>Repositorio público de imágenes.</td></tr>
+    <tr><td>Docker Compose</td><td>Herramienta para definir contenedores en un archivo YAML.</td></tr>
+    <tr><td>YAML</td><td>Formato de texto para configuración; la indentación importa.</td></tr>
+    <tr><td>PostgreSQL</td><td>Sistema de base de datos relacional (como MySQL, pero con más funciones).</td></tr>
+    <tr><td>psql</td><td>Consola de línea de comandos de PostgreSQL.</td></tr>
+    <tr><td>psycopg</td><td>Driver que permite a Python/Django hablar con PostgreSQL.</td></tr>
+    <tr><td>Variable de entorno</td><td>Valor que se configura fuera del código (ej. <code>DB_PORT</code>).</td></tr>
+    <tr><td>Modelo</td><td>Clase de Django que representa una tabla.</td></tr>
+    <tr><td>Migración</td><td>Archivo con instrucciones para crear/cambiar tablas.</td></tr>
+    <tr><td>ORM</td><td>Capa de Django que traduce Python a SQL por ti.</td></tr>
+    <tr><td>Superusuario</td><td>Usuario de Django con todos los permisos.</td></tr>
+  </table>
+  <p style="color:var(--muted);margin-top:20px">Siguiente paso del curso: <strong>Laboratorio 10</strong>, con login y registro reales, creación automática del perfil con señales y vistas protegidas.</p>
+</section>
+
+</main>
+</div>
+
+<script>
+  var root = document.documentElement;
+  var toggle = document.getElementById('theme-toggle');
+  function pintarBoton() {
+    toggle.textContent = root.getAttribute('data-theme') === 'dark' ? '☀️ Modo claro' : '🌙 Modo oscuro';
+  }
+  toggle.addEventListener('click', function () {
+    var nuevo = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', nuevo);
+    localStorage.setItem('tema', nuevo);
+    pintarBoton();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+    if (localStorage.getItem('tema')) return;
+    root.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    pintarBoton();
+  });
+  pintarBoton();
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'Copiar';
+    btn.addEventListener('click', function () {
+      var text = pre.querySelector('code').innerText;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = '¡Copiado!';
+        setTimeout(function () { btn.textContent = 'Copiar'; }, 1500);
+      });
+    });
+    pre.appendChild(btn);
+  });
+</script>
+</body>
+</html>
