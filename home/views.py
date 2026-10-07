@@ -6,10 +6,11 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
+from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render as _render
 
 from . import sample_data as datos
-from .models import Archivo, Perfil
+from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
 
 
 def es_operador(user):
@@ -52,20 +53,49 @@ def index(request):
     })
 
 
-def noticia(request, id=None):
-    publicacion = _buscar(datos.PUBLICADAS, id) if id else datos.PUBLICADAS[0]
-    publicacion = publicacion or datos.PUBLICADAS[0]
+def noticia(request, pk=None):
+    if pk and es_operador(request.user):
+        qs = Publicacion.objects.all()
+    else:
+        qs = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
+
+    qs = qs.select_related('categoria', 'autor', 'imagen_portada')
+    publicacion = get_object_or_404(qs, pk=pk) if pk else qs.order_by('-createdat').first()
+    if not publicacion:
+        messages.info(request, 'Todavía no hay noticias publicadas.')
+        return redirect('home:index')
+
+    Publicacion.objects.filter(pk=publicacion.pk).update(visitas=F('visitas') + 1)
+    publicacion.refresh_from_db()
+
+    if request.method == 'POST':
+        if not request.user.is_authenticated:
+            messages.error(request, 'Debes iniciar sesión para comentar.')
+            return redirect('home:login')
+        contenido = request.POST.get('contenido', '').strip()
+        if contenido:
+            Comentario.objects.create(publicacion=publicacion, user=request.user, contenido=contenido)
+            messages.success(request, 'Comentario enviado. Será visible cuando lo apruebe el administrador.')
+        return redirect('home:noticia_detalle', pk=publicacion.pk)
+
+    recientes = Publicacion.objects.filter(
+        estado=Publicacion.ESTADO_PUBLICADO,
+    ).exclude(pk=publicacion.pk).order_by('-createdat')[:4]
+    comentarios = publicacion.comentarios.filter(
+        estado=Comentario.ESTADO_APROBADO,
+    ).select_related('user').order_by('-createdat')
+    categorias = Categoria.objects.all().order_by('nombre')
+
     return render(request, 'home/noticia.html', {
         'publicacion': publicacion,
-        'comentarios': [c for c in datos.COMENTARIOS
-                        if c.publicacion.id == publicacion.id and c.estado == 'aprobado'],
-        'galeria': [n.imagen for n in datos.PUBLICADAS if n.id != publicacion.id][:3],
-        'otras': [n for n in datos.PUBLICADAS if n.id != publicacion.id][:4],
+        'recientes': recientes,
+        'comentarios': comentarios,
+        'categorias': categorias,
     })
 
 
-def categoria(request):
-    seleccion = _buscar(datos.CATEGORIAS, int(request.GET.get('id', 1) or 1))
+def categoria(request, pk=None):
+    seleccion = _buscar(datos.CATEGORIAS, pk or int(request.GET.get('id', 1) or 1))
     return render(request, 'home/categoria.html', {
         'categoria_actual': seleccion,
         'publicaciones': [n for n in datos.PUBLICADAS if seleccion and n.categoria.id == seleccion.id],
@@ -199,41 +229,144 @@ def crud_cambiar_contrasena(request):
     return render(request, 'home/crud_cambiar_contrasena.html')
 
 
-# Panel: noticias, comentarios y categorías (se conectan a la base en el Laboratorio 11)
+# Panel: noticias
 
 @operador_required
 def crud_noticias(request):
-    return render(request, 'home/crud_noticias.html', {'publicaciones': datos.NOTICIAS})
+    publicaciones = Publicacion.objects.select_related('categoria', 'autor').order_by('-createdat')
+    return render(request, 'home/crud_noticias.html', {'publicaciones': publicaciones})
 
 
 @operador_required
-def crear_publicacion(request, id=None):
+def crear_publicacion(request):
+    categorias = Categoria.objects.all().order_by('nombre')
+    if request.method == 'POST':
+        publicacion = Publicacion.objects.create(
+            titulo=request.POST.get('titulo', '').strip(),
+            resumen=request.POST.get('resumen', '').strip(),
+            contenido=request.POST.get('contenido', '').strip(),
+            categoria_id=request.POST.get('categoria') or None,
+            estado=request.POST.get('estado') or Publicacion.ESTADO_BORRADOR,
+            autor=request.user,
+        )
+        portada = request.FILES.get('imagen_portada')
+        if portada:
+            publicacion.imagen_portada = guardar_archivo(portada, request.user)
+            publicacion.save()
+        for imagen in request.FILES.getlist('galeria'):
+            GaleriaPublicacion.objects.create(publicacion=publicacion, archivo=guardar_archivo(imagen, request.user))
+        messages.success(request, 'Publicación creada correctamente.')
+        return redirect('home:crud_noticias')
+    return render(request, 'home/crear_publicacion.html', {'categorias': categorias})
+
+
+@operador_required
+def editar_publicacion(request, pk):
+    publicacion = get_object_or_404(Publicacion, pk=pk)
+    categorias = Categoria.objects.all().order_by('nombre')
+    if request.method == 'POST':
+        publicacion.titulo = request.POST.get('titulo', '').strip()
+        publicacion.resumen = request.POST.get('resumen', '').strip()
+        publicacion.contenido = request.POST.get('contenido', '').strip()
+        publicacion.categoria_id = request.POST.get('categoria') or None
+        publicacion.estado = request.POST.get('estado') or Publicacion.ESTADO_BORRADOR
+        portada = request.FILES.get('imagen_portada')
+        if portada:
+            publicacion.imagen_portada = guardar_archivo(portada, request.user)
+        publicacion.save()
+        for imagen in request.FILES.getlist('galeria'):
+            GaleriaPublicacion.objects.create(publicacion=publicacion, archivo=guardar_archivo(imagen, request.user))
+        messages.success(request, 'Publicación actualizada correctamente.')
+        return redirect('home:crud_noticias')
     return render(request, 'home/crear_publicacion.html', {
-        'publicacion': _buscar(datos.NOTICIAS, id) if id else None,
+        'categorias': categorias,
+        'publicacion': publicacion,
     })
 
+
+@operador_required
+def publicar_publicacion(request, pk):
+    publicacion = get_object_or_404(Publicacion, pk=pk)
+    publicacion.estado = Publicacion.ESTADO_PUBLICADO if publicacion.estado != Publicacion.ESTADO_PUBLICADO else Publicacion.ESTADO_BORRADOR
+    publicacion.save()
+    return redirect('home:crud_noticias')
+
+
+@operador_required
+def eliminar_publicacion(request, pk):
+    publicacion = get_object_or_404(Publicacion, pk=pk)
+    if request.method == 'POST':
+        publicacion.delete()
+        messages.success(request, 'Publicación eliminada correctamente.')
+    return redirect('home:crud_noticias')
+
+
+# Panel: comentarios
 
 @operador_required
 def crud_comentarios(request):
-    return render(request, 'home/crud_comentarios.html', {'comentarios': datos.COMENTARIOS})
+    comentarios = Comentario.objects.select_related('publicacion', 'user').order_by('-createdat')
+    return render(request, 'home/crud_comentarios.html', {'comentarios': comentarios})
 
+
+@operador_required
+def aprobar_comentario(request, pk):
+    comentario = get_object_or_404(Comentario, pk=pk)
+    comentario.estado = Comentario.ESTADO_APROBADO
+    comentario.save()
+    return redirect('home:crud_comentarios')
+
+
+@operador_required
+def bloquear_comentario(request, pk):
+    comentario = get_object_or_404(Comentario, pk=pk)
+    comentario.estado = Comentario.ESTADO_BLOQUEADO
+    comentario.save()
+    return redirect('home:crud_comentarios')
+
+
+@operador_required
+def eliminar_comentario(request, pk):
+    comentario = get_object_or_404(Comentario, pk=pk)
+    if request.method == 'POST':
+        comentario.delete()
+    return redirect('home:crud_comentarios')
+
+
+# Panel: categorías
 
 @operador_required
 def crud_categorias(request):
-    return render(request, 'home/crud_categorias.html', {'categorias': datos.CATEGORIAS})
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        if nombre:
+            Categoria.objects.create(nombre=nombre, fk_user=request.user)
+            messages.success(request, 'Categoría agregada correctamente.')
+            return redirect('home:crud_categorias')
+    categorias = Categoria.objects.all().order_by('-createdat')
+    return render(request, 'home/crud_categorias.html', {'categorias': categorias})
 
 
 @operador_required
-def editar_categoria(request, id):
-    return render(request, 'home/editar_categoria.html', {
-        'categoria': _buscar(datos.CATEGORIAS, id),
-    })
+def editar_categoria(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        if nombre:
+            categoria.nombre = nombre
+            categoria.save()
+            messages.success(request, 'Categoría actualizada correctamente.')
+        return redirect('home:crud_categorias')
+    return render(request, 'home/editar_categoria.html', {'categoria': categoria})
 
 
 @operador_required
-def accion_pendiente(request, id, destino):
-    messages.info(request, 'Esta acción se conectará a la base de datos en los siguientes laboratorios.')
-    return redirect(destino)
+def eliminar_categoria(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        categoria.delete()
+        messages.success(request, 'Categoría eliminada correctamente.')
+    return redirect('home:crud_categorias')
 
 
 # Panel: usuarios

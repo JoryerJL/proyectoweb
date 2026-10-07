@@ -9,8 +9,9 @@ urlpatterns = [
     # Sitio público
     path("", views.index, name="index"),
     path("noticia/", views.noticia, name="noticia"),
-    path("noticia/<int:id>/", views.noticia, name="noticia_detalle"),
+    path("noticia/<int:pk>/", views.noticia, name="noticia_detalle"),
     path("categoria/", views.categoria, name="categoria"),
+    path("categoria/<int:pk>/", views.categoria, name="categoria_detalle"),
     path("contactanos/", views.contactanos, name="contactanos"),
     path("login/", views.login, name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="home:login"), name="logout"),
@@ -24,20 +25,20 @@ urlpatterns = [
     # Panel: noticias
     path("panel/noticias/", views.crud_noticias, name="crud_noticias"),
     path("panel/noticias/crear/", views.crear_publicacion, name="crear_publicacion"),
-    path("panel/noticias/<int:id>/editar/", views.crear_publicacion, name="editar_publicacion"),
-    path("panel/noticias/<int:id>/publicar/", views.accion_pendiente, {"destino": "home:crud_noticias"}, name="publicar_publicacion"),
-    path("panel/noticias/<int:id>/eliminar/", views.accion_pendiente, {"destino": "home:crud_noticias"}, name="eliminar_publicacion"),
+    path("panel/noticias/<int:pk>/editar/", views.editar_publicacion, name="editar_publicacion"),
+    path("panel/noticias/<int:pk>/publicar/", views.publicar_publicacion, name="publicar_publicacion"),
+    path("panel/noticias/<int:pk>/eliminar/", views.eliminar_publicacion, name="eliminar_publicacion"),
 
     # Panel: comentarios
     path("panel/comentarios/", views.crud_comentarios, name="crud_comentarios"),
-    path("panel/comentarios/<int:id>/aprobar/", views.accion_pendiente, {"destino": "home:crud_comentarios"}, name="aprobar_comentario"),
-    path("panel/comentarios/<int:id>/bloquear/", views.accion_pendiente, {"destino": "home:crud_comentarios"}, name="bloquear_comentario"),
-    path("panel/comentarios/<int:id>/eliminar/", views.accion_pendiente, {"destino": "home:crud_comentarios"}, name="eliminar_comentario"),
+    path("panel/comentarios/<int:pk>/aprobar/", views.aprobar_comentario, name="aprobar_comentario"),
+    path("panel/comentarios/<int:pk>/bloquear/", views.bloquear_comentario, name="bloquear_comentario"),
+    path("panel/comentarios/<int:pk>/eliminar/", views.eliminar_comentario, name="eliminar_comentario"),
 
     # Panel: categorías
     path("panel/categorias/", views.crud_categorias, name="crud_categorias"),
-    path("panel/categorias/<int:id>/editar/", views.editar_categoria, name="editar_categoria"),
-    path("panel/categorias/<int:id>/eliminar/", views.accion_pendiente, {"destino": "home:crud_categorias"}, name="eliminar_categoria"),
+    path("panel/categorias/<int:pk>/editar/", views.editar_categoria, name="editar_categoria"),
+    path("panel/categorias/<int:pk>/eliminar/", views.eliminar_categoria, name="eliminar_categoria"),
 
     # Panel: usuarios
     path("panel/usuarios/", views.crud_usuarios, name="crud_usuarios"),

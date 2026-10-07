@@ -9,12 +9,20 @@
             <article class="main-content">
                 <nav class="breadcrumb" aria-label="Ruta">
                     <a href="{% url 'home:index' %}">Inicio</a>
+                    {% if publicacion.categoria %}
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                    <a href="{% url 'home:categoria' %}?id={{ publicacion.categoria.id }}">{{ publicacion.categoria.nombre }}</a>
+                    <a href="{% url 'home:categoria_detalle' publicacion.categoria.id %}">{{ publicacion.categoria.nombre }}</a>
+                    {% endif %}
                 </nav>
 
+                {% include 'partials/messages.html' %}
+
                 <header class="article-header">
-                    <a href="{% url 'home:categoria' %}?id={{ publicacion.categoria.id }}" class="chip">{{ publicacion.categoria.nombre|default:"Sin categoría" }}</a>
+                    {% if publicacion.categoria %}
+                    <a href="{% url 'home:categoria_detalle' publicacion.categoria.id %}" class="chip">{{ publicacion.categoria.nombre }}</a>
+                    {% else %}
+                    <span class="chip">Sin categoría</span>
+                    {% endif %}
                     <h1>{{ publicacion.titulo }}</h1>
                     <div class="post-meta">
                         <span><span class="avatar avatar--mint" style="width:1.8rem;height:1.8rem;font-size:.8rem">{{ publicacion.autor.username|first }}</span>{{ publicacion.autor.first_name|default:publicacion.autor.username }}</span>
@@ -23,7 +31,9 @@
                     </div>
                 </header>
 
-                <img src="{% static publicacion.imagen %}" alt="" class="article-cover publication-cover-image">
+                {% if publicacion.imagen_portada %}
+                <img src="{{ publicacion.imagen_portada.display_url }}" alt="" class="article-cover publication-cover-image">
+                {% endif %}
 
                 <p class="article-lead">{{ publicacion.resumen }}</p>
                 <div class="post-content-body">
@@ -32,15 +42,17 @@
 
                 <section class="article-section" aria-labelledby="galeria-titulo">
                     <h2 id="galeria-titulo">Galería</h2>
-                    {% if galeria %}
+                    {% with imagenes=publicacion.galeria.all %}
+                    {% if imagenes %}
                     <div class="gallery">
-                        {% for imagen in galeria %}
-                        <img src="{% static imagen %}" alt="Imagen {{ forloop.counter }} de la galería" class="publication-gallery-image" loading="lazy">
+                        {% for imagen in imagenes %}
+                        <img src="{{ imagen.archivo.display_url }}" alt="Imagen {{ forloop.counter }} de la galería" class="publication-gallery-image" loading="lazy">
                         {% endfor %}
                     </div>
                     {% else %}
                     <p class="text-muted">Sin imágenes en galería.</p>
                     {% endif %}
+                    {% endwith %}
                 </section>
 
                 <section class="article-section comment-wrap" aria-labelledby="comentarios-titulo">
@@ -91,10 +103,12 @@
                 <div class="sidebar-box">
                     <h3 class="heading">Otras noticias</h3>
                     <ul class="mini-posts post-entry-sidebar">
-                        {% for item in otras %}
+                        {% for item in recientes %}
                         <li>
                             <a href="{% url 'home:noticia_detalle' item.id %}">
-                                <img src="{% static item.imagen %}" alt="" class="sidebar-post-image" loading="lazy">
+                                {% if item.imagen_portada %}
+                                <img src="{{ item.imagen_portada.display_url }}" alt="" class="sidebar-post-image" loading="lazy">
+                                {% endif %}
                                 <div>
                                     <h4>{{ item.titulo|truncatewords:9 }}</h4>
                                     <span class="meta">{{ item.createdat|date:"j M Y" }}</span>
@@ -110,7 +124,7 @@
                     <h3 class="heading">Categorías</h3>
                     <div class="chip-row categories">
                         {% for cat in categorias %}
-                        <a class="chip" href="{% url 'home:categoria' %}?id={{ cat.id }}">{{ cat.nombre }}</a>
+                        <a class="chip" href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }}</a>
                         {% endfor %}
                     </div>
                 </div>

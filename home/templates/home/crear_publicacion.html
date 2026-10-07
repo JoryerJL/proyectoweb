@@ -44,8 +44,8 @@
         <div class="field">
             <label for="imagen_portada">Imagen de portada</label>
             <input type="file" id="imagen_portada" name="imagen_portada" accept="image/*">
-            {% if publicacion and publicacion.imagen %}
-            <p class="field-hint">Actual: {{ publicacion.imagen }}</p>
+            {% if publicacion and publicacion.imagen_portada %}
+            <p class="field-hint">Actual: {{ publicacion.imagen_portada.nombre }}. Sube otra solo si quieres reemplazarla.</p>
             {% endif %}
         </div>
         <div class="field editor-shell">
