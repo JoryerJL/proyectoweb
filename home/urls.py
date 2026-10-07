@@ -13,7 +13,7 @@ urlpatterns = [
     path("categoria/", views.categoria, name="categoria"),
     path("categoria/<int:pk>/", views.categoria, name="categoria_detalle"),
     path("contactanos/", views.contactanos, name="contactanos"),
-    path("login/", views.login, name="login"),
+    path("login/", auth_views.LoginView.as_view(template_name="home/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="home:login"), name="logout"),
     path("sign_up/", views.sign_up, name="sign_up"),
 

@@ -2,12 +2,11 @@ import os
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
-from django.db.models import Count, F, Q
-from django.shortcuts import get_object_or_404, redirect, render as _render
+from django.db.models import F, Q
+from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
 
@@ -17,19 +16,6 @@ def es_operador(user):
 
 
 operador_required = user_passes_test(es_operador, login_url='home:login')
-
-
-def _comun():
-    publicadas = Q(publicacion__estado=Publicacion.ESTADO_PUBLICADO)
-    return {
-        'categorias': Categoria.objects.annotate(total=Count('publicacion', filter=publicadas)).order_by('nombre'),
-        'recientes': Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
-                                        .select_related('imagen_portada').order_by('-createdat')[:3],
-    }
-
-
-def render(request, template, contexto=None):
-    return _render(request, template, {**_comun(), **(contexto or {})})
 
 
 def guardar_archivo(upload, user):
@@ -121,10 +107,6 @@ def contactanos(request):
         messages.success(request, '¡Gracias por escribirnos! Te responderemos pronto.')
         return redirect('home:contactanos')
     return render(request, 'home/contactanos.html')
-
-
-def login(request):
-    return auth_views.LoginView.as_view(template_name='home/login.html', extra_context=_comun())(request)
 
 
 def sign_up(request):

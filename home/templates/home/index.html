@@ -56,7 +56,7 @@
         <div class="topics">
             <h2>Explora por tema</h2>
             <div class="chip-row">
-                {% for cat in categorias %}
+                {% for cat in global_categorias %}
                 <a class="chip" href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }} <small>{{ cat.total }}</small></a>
                 {% endfor %}
             </div>

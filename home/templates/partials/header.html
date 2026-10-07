@@ -14,7 +14,7 @@
                     Categorías <i class="bi bi-chevron-down" aria-hidden="true"></i>
                 </button>
                 <ul class="dropdown-menu">
-                    {% for cat in categorias %}
+                    {% for cat in global_categorias %}
                     <li><a href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }} <small>{{ cat.total }}</small></a></li>
                     {% empty %}
                     <li><a href="{% url 'home:categoria' %}">Todas las categorías</a></li>
@@ -61,10 +61,10 @@
         <a href="{% url 'home:index' %}">Inicio</a>
         <a href="{% url 'home:contactanos' %}">Contáctanos</a>
         <a href="{% url 'home:perfil' %}">Perfil</a>
-        {% if categorias %}
+        {% if global_categorias %}
         <p class="mobile-label">Categorías</p>
         <div class="chip-row">
-            {% for cat in categorias %}
+            {% for cat in global_categorias %}
             <a class="chip" href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }}</a>
             {% endfor %}
         </div>
