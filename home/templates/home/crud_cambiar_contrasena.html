@@ -1,0 +1,46 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Cambiar contraseña{% endblock %}
+
+{% block content %}
+<div class="panel-head">
+    <div>
+        <h1>Cambiar contraseña</h1>
+        <p>Esta acción modifica la contraseña de tu cuenta actual: <strong>{{ request.user.username|default:"usuario" }}</strong>.</p>
+    </div>
+</div>
+
+<div class="form-card profile-edit-card" style="max-width:560px">
+    {% include 'partials/messages.html' %}
+
+    <form method="POST" class="profile-edit-form">
+        {% csrf_token %}
+        <div class="field profile-form-row">
+            <label for="actual">Contraseña actual</label>
+            <div class="password-field">
+                <input type="password" id="actual" name="actual" autocomplete="current-password" required>
+                <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+        <div class="field profile-form-row">
+            <label for="nueva">Nueva contraseña</label>
+            <div class="password-field">
+                <input type="password" id="nueva" name="nueva" autocomplete="new-password" required>
+                <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+            </div>
+            <p class="field-hint">Usa al menos 8 caracteres y evita datos fáciles de adivinar.</p>
+        </div>
+        <div class="field profile-form-row">
+            <label for="confirmar">Confirmar contraseña</label>
+            <div class="password-field">
+                <input type="password" id="confirmar" name="confirmar" autocomplete="new-password" required>
+                <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+        <div class="form-actions profile-form-actions">
+            <button type="submit" class="btn btn-primary">Actualizar contraseña</button>
+            <a href="{% url 'home:perfil' %}" class="btn btn-outline-secondary">Volver a mi perfil</a>
+        </div>
+    </form>
+</div>
+{% endblock content %}

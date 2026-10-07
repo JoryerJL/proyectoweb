@@ -1,0 +1,68 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block title %}Contáctanos{% endblock %}
+{% block content %}
+<section class="section" style="padding-top: clamp(2rem, 5vw, 3.5rem);">
+    <div class="container">
+        <div class="contact-intro">
+            <h1>Platiquemos</h1>
+            <p>¿Tienes una noticia, una duda o quieres sumar tu negocio? Escríbenos y te respondemos lo antes posible.</p>
+        </div>
+
+        <div class="contact-layout">
+            <div class="card">
+                {% include 'partials/messages.html' %}
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="nombre">Tu nombre</label>
+                            <input type="text" id="nombre" name="nombre" autocomplete="name" required>
+                        </div>
+                        <div class="field">
+                            <label for="correo">Correo electrónico</label>
+                            <input type="email" id="correo" name="correo" autocomplete="email" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="asunto">¿Sobre qué nos escribes?</label>
+                        <select id="asunto" name="asunto">
+                            <option>Quiero compartir una noticia</option>
+                            <option>Quiero sumar mi negocio</option>
+                            <option>Tengo una duda</option>
+                            <option>Otro tema</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="mensaje">Mensaje</label>
+                        <textarea id="mensaje" name="mensaje" rows="5" placeholder="Cuéntanos con calma…" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg">Enviar mensaje <i class="bi bi-send" aria-hidden="true"></i></button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 style="font-size:1.35rem">Otras formas de encontrarnos</h2>
+                <ul class="contact-info">
+                    <li>
+                        <span class="icon"><i class="bi bi-envelope-heart" aria-hidden="true"></i></span>
+                        <div><strong>Correo</strong><span>Correo por confirmar</span></div>
+                    </li>
+                    <li>
+                        <span class="icon"><i class="bi bi-telephone" aria-hidden="true"></i></span>
+                        <div><strong>Teléfono</strong><span>(000) 000 0000</span></div>
+                    </li>
+                    <li>
+                        <span class="icon"><i class="bi bi-geo-alt" aria-hidden="true"></i></span>
+                        <div><strong>Oficinas</strong><span>Dirección por confirmar</span></div>
+                    </li>
+                    <li>
+                        <span class="icon"><i class="bi bi-clock" aria-hidden="true"></i></span>
+                        <div><strong>Horario</strong><span>Horario por confirmar</span></div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

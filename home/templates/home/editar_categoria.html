@@ -1,0 +1,26 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Editar categoría{% endblock %}
+{% block content %}
+<div class="panel-head">
+    <div>
+        <h1>Editar categoría</h1>
+        <p>Cambia el nombre de «{{ categoria.nombre }}». Las noticias que ya tiene se conservan.</p>
+    </div>
+</div>
+
+<div class="form-card" style="max-width:560px">
+    {% include 'partials/messages.html' %}
+    <form method="POST">
+        {% csrf_token %}
+        <div class="field">
+            <label for="nombre">Nombre</label>
+            <input type="text" id="nombre" name="nombre" value="{{ categoria.nombre }}" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            <a href="{% url 'home:crud_categorias' %}" class="btn btn-outline-secondary">Volver a categorías</a>
+        </div>
+    </form>
+</div>
+{% endblock content %}

@@ -1,0 +1,58 @@
+{% load static %}
+<footer class="site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a href="{% url 'home:index' %}" class="logo">
+                    <span class="logo-mark" aria-hidden="true"><i class="bi bi-newspaper"></i></span>
+                    Canaco
+                </a>
+                <p>Noticias, eventos e historias de los negocios que hacen comunidad. Un espacio para enterarte de lo que pasa en el comercio de tu ciudad.</p>
+                <ul class="social" aria-label="Redes sociales">
+                    <li><a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a></li>
+                    <li><a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a></li>
+                    <li><a href="#" aria-label="X"><i class="bi bi-twitter-x"></i></a></li>
+                    <li><a href="#" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3>Empresa</h3>
+                <ul class="footer-links">
+                    <li><a href="#">Sobre nosotros</a></li>
+                    <li><a href="#">Socios</a></li>
+                    <li><a href="#">Servicios</a></li>
+                    <li><a href="#">Negocios</a></li>
+                    <li><a href="#">Misión</a></li>
+                    <li><a href="#">Visión</a></li>
+                    <li><a href="#">Preguntas frecuentes</a></li>
+                    <li><a href="{% url 'home:contactanos' %}">Contáctanos</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3>Entradas recientes</h3>
+                <ul class="mini-posts">
+                    {% for item in recientes %}
+                    <li>
+                        <a href="{% url 'home:noticia_detalle' item.id %}">
+                            <img src="{% static item.imagen %}" alt="" loading="lazy">
+                            <div>
+                                <h4>{{ item.titulo|truncatewords:8 }}</h4>
+                                <span class="meta">{{ item.createdat|date:"j \d\e F" }}</span>
+                            </div>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li><span class="meta">No hay noticias recientes.</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <span>&copy; {% now "Y" %} Canaco. Todos los derechos reservados.</span>
+            <span><a href="#">Términos</a> &nbsp;·&nbsp; <a href="#">Privacidad</a></span>
+        </div>
+    </div>
+</footer>

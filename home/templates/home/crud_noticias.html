@@ -1,0 +1,68 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Noticias{% endblock %}
+{% block content %}
+<div class="panel-head">
+    <div>
+        <h1>Publicaciones</h1>
+        <p>Crea, edita y decide qué noticias ve la comunidad.</p>
+    </div>
+    <a href="{% url 'home:crear_publicacion' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> Crear publicación
+    </a>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<div class="table-card">
+    <div class="table-toolbar">
+        <span class="table-count">{{ publicaciones|length }} publicaciones</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Título</th>
+                    <th scope="col">Autor</th>
+                    <th scope="col">Creada</th>
+                    <th scope="col">Actualizada</th>
+                    <th scope="col" class="cell-num">Visitas</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for noticia in publicaciones %}
+                <tr>
+                    <td class="cell-title"><a href="{% url 'home:noticia_detalle' noticia.id %}">{{ noticia.titulo }}</a></td>
+                    <td class="cell-muted">{% if noticia.autor %}{{ noticia.autor.username }}{% else %}-{% endif %}</td>
+                    <td class="cell-muted">{{ noticia.createdat|date:"Y-m-d" }}</td>
+                    <td class="cell-muted">{{ noticia.updatedat|date:"Y-m-d" }}</td>
+                    <td class="cell-num">{{ noticia.visitas }}</td>
+                    <td>
+                        {% if noticia.publicada %}
+                        <span class="badge badge-success"><i class="bi bi-globe2" aria-hidden="true"></i> Publicado</span>
+                        {% else %}
+                        <span class="badge badge-warning"><i class="bi bi-pencil" aria-hidden="true"></i> Borrador</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="{% url 'home:noticia_detalle' noticia.id %}" class="btn btn-ghost" title="Ver"><i class="bi bi-eye" aria-hidden="true"></i><span class="visually-hidden">Ver</span></a>
+                            <a href="{% url 'home:editar_publicacion' noticia.id %}" class="btn btn-ghost">Editar</a>
+                            <a href="{% url 'home:publicar_publicacion' noticia.id %}" class="btn btn-ghost is-success">{% if noticia.publicada %}Ocultar{% else %}Publicar{% endif %}</a>
+                            <form method="post" action="{% url 'home:eliminar_publicacion' noticia.id %}" data-confirm="¿Eliminar «{{ noticia.titulo }}»? Esta acción no se puede deshacer.">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="table-empty"><td colspan="7">Todavía no hay publicaciones. ¡Crea la primera!</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

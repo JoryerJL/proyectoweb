@@ -1,0 +1,72 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+<div class="panel-head">
+    <div>
+        <h1>Gestión de usuarios</h1>
+        <p>Crea, edita, bloquea o elimina cuentas del sistema.</p>
+    </div>
+    <a href="{% url 'home:crear_usuario' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus" aria-hidden="true"></i> Crear usuario
+    </a>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Usuario</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Correo</th>
+                    <th scope="col">Rol</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in usuarios %}
+                <tr>
+                    <td class="cell-muted">{{ forloop.counter }}</td>
+                    <td><span class="cell-user"><span class="avatar {% cycle 'avatar--brand' 'avatar--mint' '' %}">{{ user.username|first }}</span>{{ user.username }}</span></td>
+                    <td>{{ user.first_name|default:"-" }}</td>
+                    <td class="cell-muted">{{ user.email|default:"-" }}</td>
+                    <td>
+                        {% if user.is_superuser %}
+                        <span class="chip">Administrador</span>
+                        {% elif user.is_staff %}
+                        <span class="chip chip--mint">Editor</span>
+                        {% else %}
+                        <span class="chip chip--sun">Colaborador</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_active %}
+                        <span class="badge badge-success"><i class="bi bi-check-circle" aria-hidden="true"></i> Activo</span>
+                        {% else %}
+                        <span class="badge badge-danger"><i class="bi bi-lock" aria-hidden="true"></i> Bloqueado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="{% url 'home:editar_usuario' user.id %}" class="btn btn-ghost">Editar</a>
+                            <a href="{% url 'home:bloquear_usuario' user.id %}" class="btn btn-ghost">{% if user.is_active %}Bloquear{% else %}Desbloquear{% endif %}</a>
+                            <form method="post" action="{% url 'home:eliminar_usuario' user.id %}" data-confirm="¿Eliminar la cuenta de {{ user.username }}? Esta acción no se puede deshacer.">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="table-empty"><td colspan="7">No hay usuarios registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

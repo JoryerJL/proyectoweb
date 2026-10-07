@@ -1,0 +1,61 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Comentarios{% endblock %}
+{% block content %}
+<div class="panel-head">
+    <div>
+        <h1>Comentarios</h1>
+        <p>Aprueba lo que suma a la conversación y bloquea lo que no.</p>
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Autor</th>
+                    <th scope="col">Noticia</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Comentario</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comentario in comentarios %}
+                <tr>
+                    <td><span class="cell-user"><span class="avatar avatar--mint">{{ comentario.user.username|first }}</span>{{ comentario.user.username }}</span></td>
+                    <td class="cell-muted">{{ comentario.publicacion.titulo|truncatewords:5 }}</td>
+                    <td class="cell-muted">{{ comentario.createdat|date:"Y-m-d H:i" }}</td>
+                    <td class="cell-text">{{ comentario.contenido }}</td>
+                    <td>
+                        {% if comentario.estado == 'aprobado' %}
+                        <span class="badge badge-success"><i class="bi bi-check-circle" aria-hidden="true"></i> Aprobado</span>
+                        {% elif comentario.estado == 'bloqueado' %}
+                        <span class="badge badge-danger"><i class="bi bi-slash-circle" aria-hidden="true"></i> Bloqueado</span>
+                        {% else %}
+                        <span class="badge badge-warning"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="{% url 'home:aprobar_comentario' comentario.id %}" class="btn btn-ghost is-success">Aprobar</a>
+                            <a href="{% url 'home:bloquear_comentario' comentario.id %}" class="btn btn-ghost">Bloquear</a>
+                            <form method="post" action="{% url 'home:eliminar_comentario' comentario.id %}" data-confirm="¿Eliminar este comentario?">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="table-empty"><td colspan="6">No hay comentarios por revisar.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

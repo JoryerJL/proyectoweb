@@ -1,0 +1,53 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block title %}{{ categoria_actual.nombre|default:"Categorías" }}{% endblock %}
+{% block content %}
+<section class="section" style="padding-top: clamp(1.5rem, 4vw, 2.5rem);">
+    <div class="container">
+        <div class="page-head">
+            <div>
+                <nav class="breadcrumb" aria-label="Ruta" style="margin-bottom:.5rem">
+                    <a href="{% url 'home:index' %}">Inicio</a>
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    <span>Categorías</span>
+                </nav>
+                <h1 class="posts-entry-title">{{ categoria_actual.nombre|default:"Todas las categorías" }}</h1>
+                <p>{{ publicaciones|length }} noticia{{ publicaciones|length|pluralize }} en este tema</p>
+            </div>
+            <div class="field mb-0">
+                <label for="cambiar-categoria" class="visually-hidden">Cambiar de categoría</label>
+                <select id="cambiar-categoria" class="form-control" onchange="if (this.value) window.location = '{% url 'home:categoria' %}?id=' + this.value;">
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id }}" {% if categoria_actual.id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        {% if publicaciones %}
+        <div class="post-list">
+            {% for item in publicaciones %}
+            <article class="post-row">
+                <img src="{% static item.imagen %}" alt="" class="category-post-image" loading="lazy">
+                <div>
+                    <div class="post-meta">
+                        <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
+                        <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }} visitas</span>
+                    </div>
+                    <h2><a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a></h2>
+                    <p>{{ item.resumen }}</p>
+                    <span class="link-arrow">Leer más <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <p>No hay noticias para esta categoría todavía.</p>
+            <a href="{% url 'home:index' %}" class="btn btn-soft btn-sm">Volver al inicio</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock content %}

@@ -1,0 +1,121 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block title %}{{ publicacion.titulo }}{% endblock %}
+{% block description %}{{ publicacion.resumen }}{% endblock %}
+{% block content %}
+<section class="section" style="padding-top: clamp(1.5rem, 4vw, 2.5rem);">
+    <div class="container">
+        <div class="article-layout blog-entries">
+            <article class="main-content">
+                <nav class="breadcrumb" aria-label="Ruta">
+                    <a href="{% url 'home:index' %}">Inicio</a>
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    <a href="{% url 'home:categoria' %}?id={{ publicacion.categoria.id }}">{{ publicacion.categoria.nombre }}</a>
+                </nav>
+
+                <header class="article-header">
+                    <a href="{% url 'home:categoria' %}?id={{ publicacion.categoria.id }}" class="chip">{{ publicacion.categoria.nombre|default:"Sin categoría" }}</a>
+                    <h1>{{ publicacion.titulo }}</h1>
+                    <div class="post-meta">
+                        <span><span class="avatar avatar--mint" style="width:1.8rem;height:1.8rem;font-size:.8rem">{{ publicacion.autor.username|first }}</span>{{ publicacion.autor.first_name|default:publicacion.autor.username }}</span>
+                        <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ publicacion.createdat|date:"j \d\e F \d\e Y" }}</span>
+                        <span><i class="bi bi-eye" aria-hidden="true"></i>{{ publicacion.visitas }} visitas</span>
+                    </div>
+                </header>
+
+                <img src="{% static publicacion.imagen %}" alt="" class="article-cover publication-cover-image">
+
+                <p class="article-lead">{{ publicacion.resumen }}</p>
+                <div class="post-content-body">
+                    {{ publicacion.contenido|safe }}
+                </div>
+
+                <section class="article-section" aria-labelledby="galeria-titulo">
+                    <h2 id="galeria-titulo">Galería</h2>
+                    {% if galeria %}
+                    <div class="gallery">
+                        {% for imagen in galeria %}
+                        <img src="{% static imagen %}" alt="Imagen {{ forloop.counter }} de la galería" class="publication-gallery-image" loading="lazy">
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Sin imágenes en galería.</p>
+                    {% endif %}
+                </section>
+
+                <section class="article-section comment-wrap" aria-labelledby="comentarios-titulo">
+                    <h2 id="comentarios-titulo">Comentarios <span class="count-bubble">{{ comentarios|length }}</span></h2>
+
+                    {% if comentarios %}
+                    <ul class="comment-list">
+                        {% for comentario in comentarios %}
+                        <li class="comment">
+                            <span class="avatar {% cycle 'avatar--brand' 'avatar--mint' '' %}">{{ comentario.user.username|first }}</span>
+                            <div class="comment-bubble">
+                                <header>
+                                    <strong>{{ comentario.user.first_name|default:comentario.user.username }}</strong>
+                                    <time datetime="{{ comentario.createdat|date:'c' }}">{{ comentario.createdat|timesince }}</time>
+                                </header>
+                                <p>{{ comentario.contenido }}</p>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="empty-state" style="margin-bottom:1.5rem">
+                        <i class="bi bi-chat-heart" aria-hidden="true"></i>
+                        <p>Aún no hay comentarios. ¡Sé la primera persona en opinar!</p>
+                    </div>
+                    {% endif %}
+
+                    {% if request.user.is_authenticated %}
+                    <form method="POST" class="comment-form">
+                        {% csrf_token %}
+                        <div class="field">
+                            <label for="contenido">Deja tu comentario</label>
+                            <textarea name="contenido" id="contenido" rows="4" placeholder="¿Qué opinas de esta noticia?" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Publicar comentario</button>
+                        <p class="field-hint">Tu comentario aparecerá cuando lo apruebe un moderador.</p>
+                    </form>
+                    {% else %}
+                    <div class="login-nudge">
+                        <span><i class="bi bi-chat-dots" aria-hidden="true"></i> Inicia sesión para unirte a la conversación.</span>
+                        <a href="{% url 'home:login' %}" class="btn btn-sm btn-primary">Iniciar sesión</a>
+                    </div>
+                    {% endif %}
+                </section>
+            </article>
+
+            <aside class="sidebar">
+                <div class="sidebar-box">
+                    <h3 class="heading">Otras noticias</h3>
+                    <ul class="mini-posts post-entry-sidebar">
+                        {% for item in otras %}
+                        <li>
+                            <a href="{% url 'home:noticia_detalle' item.id %}">
+                                <img src="{% static item.imagen %}" alt="" class="sidebar-post-image" loading="lazy">
+                                <div>
+                                    <h4>{{ item.titulo|truncatewords:9 }}</h4>
+                                    <span class="meta">{{ item.createdat|date:"j M Y" }}</span>
+                                </div>
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li class="text-muted">No hay más noticias por ahora.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="sidebar-box">
+                    <h3 class="heading">Categorías</h3>
+                    <div class="chip-row categories">
+                        {% for cat in categorias %}
+                        <a class="chip" href="{% url 'home:categoria' %}?id={{ cat.id }}">{{ cat.nombre }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+{% endblock content %}

@@ -1,0 +1,57 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block title %}Iniciar sesión{% endblock %}
+
+{% block content %}
+<div class="account-page">
+    <div class="account-card account-card-sm">
+        <div class="account-aside">
+            <a href="{% url 'home:index' %}" class="logo">
+                <span class="logo-mark" aria-hidden="true"><i class="bi bi-newspaper"></i></span>
+                Canaco
+            </a>
+            <div>
+                <h2>¡Qué gusto verte de nuevo!</h2>
+                <p>Entra para comentar las noticias y, si formas parte del equipo, administrar el sitio.</p>
+            </div>
+            <ul class="account-perks">
+                <li><i class="bi bi-chat-heart" aria-hidden="true"></i>Comenta y conversa</li>
+                <li><i class="bi bi-pencil-square" aria-hidden="true"></i>Publica noticias</li>
+            </ul>
+        </div>
+
+        <div class="account-form">
+            <h1>Iniciar sesión</h1>
+            <p>Usa tu usuario y contraseña de Canaco.</p>
+
+            {% if form.errors %}
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                <div class="alert-body">Usuario o contraseña incorrectos. Revisa los datos e intenta otra vez.</div>
+                <button type="button" class="alert-close" data-dismiss="alert" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            {% endif %}
+            {% include 'partials/messages.html' %}
+
+            <form method="POST" class="profile-edit-form">
+                {% csrf_token %}
+                <div class="field profile-form-row">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+                </div>
+                <div class="field profile-form-row">
+                    <label for="password">Contraseña</label>
+                    <div class="password-field">
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
+                        <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                    </div>
+                </div>
+                <div class="profile-form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">Entrar</button>
+                </div>
+            </form>
+            <p class="account-switch">¿Aún no tienes cuenta? <a href="{% url 'home:sign_up' %}">Crea una aquí</a></p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

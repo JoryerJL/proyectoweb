@@ -1,0 +1,55 @@
+{% load static %}
+{% with current=request.resolver_match.url_name %}
+<aside class="panel-sidebar" aria-label="Panel de administración">
+    <div class="panel-user">
+        <span class="avatar avatar--lg">{{ request.user.username|default:"C"|first }}</span>
+        <div>
+            <strong>{{ request.user.username|default:"Invitado" }}</strong>
+            <span>
+                {% if request.user.is_superuser %}Administrador{% elif request.user.is_staff %}Editor{% elif request.user.is_authenticated %}Colaborador{% else %}Sin sesión{% endif %}
+            </span>
+        </div>
+    </div>
+    <ul class="panel-nav">
+        <li>
+            <a href="{% url 'home:perfil' %}" class="panel-nav-link {% if current == 'perfil' or current == 'crud_perfil' %}active{% endif %}">
+                <i class="bi bi-person-circle" aria-hidden="true"></i><span>Mi perfil</span>
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'home:crud_noticias' %}" class="panel-nav-link {% if current == 'crud_noticias' or current == 'crear_publicacion' or current == 'editar_publicacion' %}active{% endif %}">
+                <i class="bi bi-newspaper" aria-hidden="true"></i><span>Noticias</span>
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'home:crud_comentarios' %}" class="panel-nav-link {% if current == 'crud_comentarios' %}active{% endif %}">
+                <i class="bi bi-chat-heart" aria-hidden="true"></i><span>Comentarios</span>
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'home:crud_categorias' %}" class="panel-nav-link {% if current == 'crud_categorias' or current == 'editar_categoria' %}active{% endif %}">
+                <i class="bi bi-tags" aria-hidden="true"></i><span>Categorías</span>
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'home:crud_usuarios' %}" class="panel-nav-link {% if current == 'crud_usuarios' or current == 'crear_usuario' or current == 'editar_usuario' %}active{% endif %}">
+                <i class="bi bi-people" aria-hidden="true"></i><span>Usuarios</span>
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'home:crud_cambiar_contrasena' %}" class="panel-nav-link {% if current == 'crud_cambiar_contrasena' %}active{% endif %}">
+                <i class="bi bi-key" aria-hidden="true"></i><span>Cambiar contraseña</span>
+            </a>
+        </li>
+        <li class="panel-nav-sep" aria-hidden="true"></li>
+        <li>
+            <form method="post" action="{% url 'home:logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="panel-logout-button">
+                    <i class="bi bi-box-arrow-left" aria-hidden="true"></i><span>Cerrar sesión</span>
+                </button>
+            </form>
+        </li>
+    </ul>
+</aside>
+{% endwith %}

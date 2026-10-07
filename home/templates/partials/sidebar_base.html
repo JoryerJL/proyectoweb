@@ -1,0 +1,42 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#f5f7fb">
+    <link rel="shortcut icon" href="{% static 'favicon.png' %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{% static 'css/canaco.css' %}">
+    {% block extra_css %}{% endblock extra_css %}
+
+    <title>{% block title %}Panel{% endblock %} · Panel Canaco</title>
+</head>
+<body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    {% include "partials/header.html" %}
+
+    <main id="main" class="panel-shell">
+        <div class="container">
+            <div class="panel-layout">
+                {% include "partials/sidebar.html" %}
+                <div id="contenido" class="panel-content">
+                    {% block content %}
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {% include "partials/footer.html" %}
+
+    <script src="{% static 'js/canaco.js' %}"></script>
+    {% block extra_js %}{% endblock extra_js %}
+</body>
+</html>

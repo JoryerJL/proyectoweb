@@ -1,0 +1,56 @@
+{% extends 'partials/sidebar_base.html' %}
+{% load static %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    {% include 'partials/messages.html' %}
+
+    <div class="profile-card">
+        <div class="profile-cover" aria-hidden="true"></div>
+        <div class="profile-main">
+            <div class="profile-identity">
+                <div class="profile-identity-text">
+                    <div class="profile-photo-wrap">
+                        {% if perfil_usuario.foto_perfil %}
+                        <img src="{{ perfil_usuario.foto_perfil.display_url }}" alt="Foto de perfil" class="profile-photo">
+                        {% else %}
+                        <img src="{% static 'uploads/profile-default.jpg' %}" alt="Foto por defecto" class="profile-photo">
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2>{{ request.user.first_name|default:request.user.username|default:"Tu nombre" }}</h2>
+                        <span>@{{ request.user.username|default:"usuario" }}</span>
+                    </div>
+                </div>
+                <div class="profile-actions">
+                    <a href="{% url 'home:crud_perfil' %}" class="btn btn-primary"><i class="bi bi-pencil" aria-hidden="true"></i> Editar mi perfil</a>
+                </div>
+            </div>
+
+            <div class="profile-grid">
+                <div class="profile-field">
+                    <span>Usuario</span>
+                    <strong>{{ request.user.username|default:"Sin registrar" }}</strong>
+                </div>
+                <div class="profile-field">
+                    <span>Nombre</span>
+                    <strong>{{ request.user.first_name|default:"Sin registrar" }}</strong>
+                </div>
+                <div class="profile-field">
+                    <span>Apellido paterno</span>
+                    <strong>{{ perfil_usuario.apellido_paterno|default:"Sin registrar" }}</strong>
+                </div>
+                <div class="profile-field">
+                    <span>Apellido materno</span>
+                    <strong>{{ perfil_usuario.apellido_materno|default:"Sin registrar" }}</strong>
+                </div>
+                <div class="profile-field profile-field-wide">
+                    <span>Correo electrónico</span>
+                    <strong>{{ request.user.email|default:"Sin registrar" }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

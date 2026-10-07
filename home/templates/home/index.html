@@ -1,0 +1,109 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+
+<section class="hero">
+    <div class="container">
+        {% if destacadas %}
+        <div class="featured" data-carousel aria-roledescription="carrusel" aria-label="Noticias destacadas">
+            {% for item in destacadas %}
+            <article class="featured-slide" {% if not forloop.first %}hidden{% endif %} aria-roledescription="diapositiva" aria-label="{{ forloop.counter }} de {{ destacadas|length }}">
+                <a href="{% url 'home:noticia_detalle' item.id %}" class="featured-media" tabindex="-1" aria-hidden="true">
+                    <img src="{% static item.imagen %}" alt="" {% if not forloop.first %}loading="lazy"{% endif %}>
+                </a>
+                <div class="featured-body">
+                    <a href="{% url 'home:categoria' %}?id={{ item.categoria.id }}" class="chip">{{ item.categoria.nombre }}</a>
+                    {% if forloop.first %}<h1>{% else %}<h2>{% endif %}<a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a>{% if forloop.first %}</h1>{% else %}</h2>{% endif %}
+                    <p>{{ item.resumen }}</p>
+                    <div class="featured-actions">
+                        <a href="{% url 'home:noticia_detalle' item.id %}" class="btn btn-primary">Leer la nota <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                        <div class="post-meta">
+                            <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
+                            <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }}</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+
+            {% if destacadas|length > 1 %}
+            <div class="carousel-controls">
+                <div class="carousel-dots">
+                    {% for item in destacadas %}
+                    <button type="button" aria-label="Ver noticia {{ forloop.counter }}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}"></button>
+                    {% endfor %}
+                </div>
+                <button type="button" class="carousel-arrow prev" aria-label="Anterior"><i class="bi bi-arrow-left"></i></button>
+                <button type="button" class="carousel-arrow next" aria-label="Siguiente"><i class="bi bi-arrow-right"></i></button>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="section recent-news-section" style="padding-top: 0;">
+    <div class="container">
+        <div class="topics">
+            <h2>Explora por tema</h2>
+            <div class="chip-row">
+                {% for cat in categorias %}
+                <a class="chip" href="{% url 'home:categoria' %}?id={{ cat.id }}">{{ cat.nombre }} <small>{{ cat.total }}</small></a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="section-head">
+            <h2 id="recientes-titulo">Noticias recientes</h2>
+            <div class="section-head-actions">
+                <a href="{% url 'home:categoria' %}" class="link-arrow">Ver todas <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                {% if publicaciones|length > 1 %}
+                <div class="rail-arrows">
+                    <button type="button" class="carousel-arrow" data-rail-prev aria-controls="rail-recientes" aria-label="Noticias anteriores"><i class="bi bi-arrow-left"></i></button>
+                    <button type="button" class="carousel-arrow" data-rail-next aria-controls="rail-recientes" aria-label="Más noticias"><i class="bi bi-arrow-right"></i></button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if publicaciones %}
+        <div class="post-rail" id="rail-recientes" data-rail tabindex="0" role="region" aria-labelledby="recientes-titulo">
+            {% for item in publicaciones %}
+            <article class="post-card">
+                <div class="post-card-media">
+                    <img src="{% static item.imagen %}" alt="" loading="lazy">
+                </div>
+                <div class="post-card-body">
+                    <a href="{% url 'home:categoria' %}?id={{ item.categoria.id }}" class="chip">{{ item.categoria.nombre|default:"Sin categoría" }}</a>
+                    <h3><a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a></h3>
+                    <p>{{ item.resumen }}</p>
+                    <div class="post-meta">
+                        <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
+                        <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }} visitas</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-newspaper" aria-hidden="true"></i>
+            <p>Todavía no hay noticias publicadas.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="invite">
+            <div>
+                <h2>¿Tu negocio tiene algo que contar?</h2>
+                <p>Una apertura, un evento, una historia que valga la pena compartir. Escríbenos y la publicamos para toda la comunidad.</p>
+            </div>
+            <a href="{% url 'home:contactanos' %}" class="btn btn-light btn-lg">Escríbenos <i class="bi bi-send" aria-hidden="true"></i></a>
+        </div>
+    </div>
+</section>
+{% endblock content %}
