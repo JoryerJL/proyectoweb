@@ -45,9 +45,9 @@
         <div class="field profile-form-row">
             <label for="rol">Rol</label>
             <select id="rol" name="rol">
-                <option value="colaborador" {% if not usuario_editado.is_staff and not usuario_editado.is_superuser %}selected{% endif %}>Colaborador: comenta noticias</option>
-                <option value="editor" {% if usuario_editado.is_staff and not usuario_editado.is_superuser %}selected{% endif %}>Editor: publica y modera</option>
-                <option value="administrador" {% if usuario_editado.is_superuser %}selected{% endif %}>Administrador: acceso total</option>
+                {% for r in roles %}
+                <option value="{{ r.value }}" {% if r.value == rol_actual %}selected{% endif %}>{{ r.label }}: {{ r.description }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="field-grid">

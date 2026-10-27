@@ -2,20 +2,16 @@ import os
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from . import roles
 from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
-
-
-def es_operador(user):
-    return user.is_authenticated and user.is_staff and user.is_active
-
-
-operador_required = user_passes_test(es_operador, login_url='home:login')
+from .roles import perm_required
 
 
 def guardar_archivo(upload, user):
@@ -43,7 +39,7 @@ def index(request):
 
 
 def noticia(request, pk=None):
-    if pk and es_operador(request.user):
+    if pk and request.user.has_perm('home.change_publicacion'):
         qs = Publicacion.objects.all()
     else:
         qs = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
@@ -135,6 +131,7 @@ def sign_up(request):
         user.first_name = first_name
         user.last_name = ' '.join(filter(None, [apellido_paterno, apellido_materno]))
         user.save()
+        roles.assign_role(user, roles.COLABORADOR)
         perfil, _ = Perfil.objects.get_or_create(user=user)
         perfil.apellido_paterno = apellido_paterno
         perfil.apellido_materno = apellido_materno
@@ -228,13 +225,13 @@ def crud_cambiar_contrasena(request):
 
 # Panel: noticias
 
-@operador_required
+@perm_required('home.change_publicacion')
 def crud_noticias(request):
     publicaciones = Publicacion.objects.select_related('categoria', 'autor').order_by('-createdat')
     return render(request, 'home/crud_noticias.html', {'publicaciones': publicaciones})
 
 
-@operador_required
+@perm_required('home.add_publicacion')
 def crear_publicacion(request):
     categorias = Categoria.objects.all().order_by('nombre')
     if request.method == 'POST':
@@ -257,7 +254,7 @@ def crear_publicacion(request):
     return render(request, 'home/crear_publicacion.html', {'categorias': categorias})
 
 
-@operador_required
+@perm_required('home.change_publicacion')
 def editar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
     categorias = Categoria.objects.all().order_by('nombre')
@@ -281,7 +278,7 @@ def editar_publicacion(request, pk):
     })
 
 
-@operador_required
+@perm_required('home.change_publicacion')
 def publicar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
     publicacion.estado = Publicacion.ESTADO_PUBLICADO if publicacion.estado != Publicacion.ESTADO_PUBLICADO else Publicacion.ESTADO_BORRADOR
@@ -289,7 +286,7 @@ def publicar_publicacion(request, pk):
     return redirect('home:crud_noticias')
 
 
-@operador_required
+@perm_required('home.delete_publicacion')
 def eliminar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
     if request.method == 'POST':
@@ -300,13 +297,13 @@ def eliminar_publicacion(request, pk):
 
 # Panel: comentarios
 
-@operador_required
+@perm_required('home.change_comentario')
 def crud_comentarios(request):
     comentarios = Comentario.objects.select_related('publicacion', 'user').order_by('-createdat')
     return render(request, 'home/crud_comentarios.html', {'comentarios': comentarios})
 
 
-@operador_required
+@perm_required('home.change_comentario')
 def aprobar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     comentario.estado = Comentario.ESTADO_APROBADO
@@ -314,7 +311,7 @@ def aprobar_comentario(request, pk):
     return redirect('home:crud_comentarios')
 
 
-@operador_required
+@perm_required('home.change_comentario')
 def bloquear_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     comentario.estado = Comentario.ESTADO_BLOQUEADO
@@ -322,7 +319,7 @@ def bloquear_comentario(request, pk):
     return redirect('home:crud_comentarios')
 
 
-@operador_required
+@perm_required('home.delete_comentario')
 def eliminar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     if request.method == 'POST':
@@ -332,9 +329,11 @@ def eliminar_comentario(request, pk):
 
 # Panel: categorías
 
-@operador_required
+@perm_required('home.change_categoria')
 def crud_categorias(request):
     if request.method == 'POST':
+        if not request.user.has_perm('home.add_categoria'):
+            raise PermissionDenied
         nombre = request.POST.get('nombre')
         if nombre:
             Categoria.objects.create(nombre=nombre, fk_user=request.user)
@@ -344,7 +343,7 @@ def crud_categorias(request):
     return render(request, 'home/crud_categorias.html', {'categorias': categorias})
 
 
-@operador_required
+@perm_required('home.change_categoria')
 def editar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
     if request.method == 'POST':
@@ -357,7 +356,7 @@ def editar_categoria(request, pk):
     return render(request, 'home/editar_categoria.html', {'categoria': categoria})
 
 
-@operador_required
+@perm_required('home.delete_categoria')
 def eliminar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
     if request.method == 'POST':
@@ -368,15 +367,17 @@ def eliminar_categoria(request, pk):
 
 # Panel: usuarios
 
-@operador_required
+@perm_required('auth.view_user')
 def crud_usuarios(request):
     for usuario in User.objects.all():
         Perfil.objects.get_or_create(user=usuario)
-    usuarios = User.objects.select_related('perfil').order_by('date_joined')
+    usuarios = list(User.objects.select_related('perfil').prefetch_related('groups').order_by('date_joined'))
+    for usuario in usuarios:
+        usuario.rol = roles.get_user_role(usuario)
     return render(request, 'home/crud_usuarios.html', {'usuarios': usuarios})
 
 
-@operador_required
+@perm_required('auth.add_user')
 def crear_usuario(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -400,10 +401,9 @@ def crear_usuario(request):
         user = User.objects.create_user(username=username, email=email, password=password1)
         user.first_name = first_name
         user.last_name = ' '.join(filter(None, [apellido_paterno, apellido_materno]))
-        rol = request.POST.get('rol')
-        user.is_staff = rol in ['editor', 'administrador']
-        user.is_superuser = rol == 'administrador'
         user.save()
+        rol = request.POST.get('rol')
+        roles.assign_role(user, rol if roles.get_role(rol) else roles.DEFAULT_ROLE)
         perfil, _ = Perfil.objects.get_or_create(user=user)
         perfil.apellido_paterno = apellido_paterno
         perfil.apellido_materno = apellido_materno
@@ -411,10 +411,10 @@ def crear_usuario(request):
         messages.success(request, 'Usuario creado correctamente.')
         return redirect('home:crud_usuarios')
 
-    return render(request, 'home/crear_usuario.html')
+    return render(request, 'home/crear_usuario.html', {'roles': roles.ROLES, 'rol_actual': roles.DEFAULT_ROLE})
 
 
-@operador_required
+@perm_required('auth.change_user')
 def editar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     perfil, _ = Perfil.objects.get_or_create(user=usuario)
@@ -426,9 +426,6 @@ def editar_usuario(request, pk):
         perfil.apellido_materno = request.POST.get('apellido_materno', perfil.apellido_materno).strip()
         usuario.last_name = ' '.join(filter(None, [perfil.apellido_paterno, perfil.apellido_materno]))
         rol = request.POST.get('rol')
-        if rol:
-            usuario.is_staff = rol in ['editor', 'administrador']
-            usuario.is_superuser = rol == 'administrador'
         password1 = request.POST.get('password1', '')
         password2 = request.POST.get('password2', '')
         if password1 or password2:
@@ -437,16 +434,20 @@ def editar_usuario(request, pk):
                 return redirect('home:editar_usuario', pk=usuario.pk)
             usuario.set_password(password1)
         usuario.save()
+        if roles.get_role(rol):
+            roles.assign_role(usuario, rol)
         perfil.save()
         messages.success(request, 'Usuario actualizado correctamente.')
         return redirect('home:crud_usuarios')
     return render(request, 'home/crear_usuario.html', {
         'usuario_editado': usuario,
         'perfil_editado': perfil,
+        'roles': roles.ROLES,
+        'rol_actual': roles.get_user_role(usuario).value,
     })
 
 
-@operador_required
+@perm_required('auth.change_user')
 def bloquear_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     if usuario != request.user:
@@ -455,7 +456,7 @@ def bloquear_usuario(request, pk):
     return redirect('home:crud_usuarios')
 
 
-@operador_required
+@perm_required('auth.delete_user')
 def eliminar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     if request.method == 'POST' and usuario != request.user:

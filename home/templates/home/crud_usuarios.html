@@ -36,13 +36,7 @@
                     <td>{{ user.first_name|default:"-" }}</td>
                     <td class="cell-muted">{{ user.email|default:"-" }}</td>
                     <td>
-                        {% if user.is_superuser %}
-                        <span class="chip">Administrador</span>
-                        {% elif user.is_staff %}
-                        <span class="chip chip--mint">Editor</span>
-                        {% else %}
-                        <span class="chip chip--sun">Colaborador</span>
-                        {% endif %}
+                        <span class="chip {% if user.rol.value == 'editor' %}chip--mint{% elif user.rol.value == 'colaborador' %}chip--sun{% endif %}">{{ user.rol.label }}</span>
                     </td>
                     <td>
                         {% if user.is_active %}

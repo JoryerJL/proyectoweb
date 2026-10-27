@@ -6,7 +6,7 @@
         <div>
             <strong>{{ request.user.username|default:"Invitado" }}</strong>
             <span>
-                {% if request.user.is_superuser %}Administrador{% elif request.user.is_staff %}Editor{% elif request.user.is_authenticated %}Colaborador{% else %}Sin sesión{% endif %}
+                {{ user_role.label|default:"Sin sesión" }}
             </span>
         </div>
     </div>
@@ -16,26 +16,34 @@
                 <i class="bi bi-person-circle" aria-hidden="true"></i><span>Mi perfil</span>
             </a>
         </li>
+        {% if perms.home.change_publicacion %}
         <li>
             <a href="{% url 'home:crud_noticias' %}" class="panel-nav-link {% if current == 'crud_noticias' or current == 'crear_publicacion' or current == 'editar_publicacion' %}active{% endif %}">
                 <i class="bi bi-newspaper" aria-hidden="true"></i><span>Noticias</span>
             </a>
         </li>
+        {% endif %}
+        {% if perms.home.change_comentario %}
         <li>
             <a href="{% url 'home:crud_comentarios' %}" class="panel-nav-link {% if current == 'crud_comentarios' %}active{% endif %}">
                 <i class="bi bi-chat-heart" aria-hidden="true"></i><span>Comentarios</span>
             </a>
         </li>
+        {% endif %}
+        {% if perms.home.change_categoria %}
         <li>
             <a href="{% url 'home:crud_categorias' %}" class="panel-nav-link {% if current == 'crud_categorias' or current == 'editar_categoria' %}active{% endif %}">
                 <i class="bi bi-tags" aria-hidden="true"></i><span>Categorías</span>
             </a>
         </li>
+        {% endif %}
+        {% if perms.auth.view_user %}
         <li>
             <a href="{% url 'home:crud_usuarios' %}" class="panel-nav-link {% if current == 'crud_usuarios' or current == 'crear_usuario' or current == 'editar_usuario' %}active{% endif %}">
                 <i class="bi bi-people" aria-hidden="true"></i><span>Usuarios</span>
             </a>
         </li>
+        {% endif %}
         <li>
             <a href="{% url 'home:crud_cambiar_contrasena' %}" class="panel-nav-link {% if current == 'crud_cambiar_contrasena' %}active{% endif %}">
                 <i class="bi bi-key" aria-hidden="true"></i><span>Cambiar contraseña</span>
