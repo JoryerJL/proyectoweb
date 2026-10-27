@@ -6,7 +6,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
+from django.db import connection
 from django.db.models import F, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from . import roles
@@ -462,3 +464,13 @@ def eliminar_usuario(request, pk):
     if request.method == 'POST' and usuario != request.user:
         usuario.delete()
     return redirect('home:crud_usuarios')
+
+
+def healthz(request):
+    """Liveness/readiness probe: 200 when the database answers, 503 otherwise."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+    except Exception:
+        return JsonResponse({'status': 'error'}, status=503)
+    return JsonResponse({'status': 'ok'})

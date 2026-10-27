@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 
+from .env import INSECURE_SECRET_KEY, env_bool, env_list, validate_production
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,13 +22,34 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
+# Every deployment-specific value comes from environment variables.
+# With no variables set the defaults below give a working local dev setup.
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-4bm14dim+pt9*yg3ugyi^fyjk#7858z8riq+%de00+3i_0$7rk'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or INSECURE_SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = []
+# Production must not start with DEBUG off and the public default secret key.
+validate_production(DEBUG, SECRET_KEY)
+
+# localhost entries keep container healthchecks and smoke tests working.
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS') + (['localhost', '127.0.0.1'] if not DEBUG else [])
+
+# Full origins including scheme, e.g. https://example.com
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+
+# Behind a TLS-terminating proxy (nginx, ALB, Caddy) that sets X-Forwarded-Proto.
+if env_bool('DJANGO_USE_PROXY_SSL_HEADER', False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Enable these once the site is served over HTTPS.
+SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', False)
+SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
+SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', False)
+CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', False)
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', '0'))
 
 
 # Application definition
@@ -124,9 +147,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = Path(os.environ.get('DJANGO_STATIC_ROOT', BASE_DIR / 'staticfiles'))
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.environ.get('DJANGO_MEDIA_ROOT', BASE_DIR / 'media'))
 
 LOGIN_URL = 'home:login'
 LOGIN_REDIRECT_URL = 'home:index'

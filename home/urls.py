@@ -6,6 +6,9 @@ from . import views
 app_name = "home"
 
 urlpatterns = [
+    # Health check (used by Docker healthcheck and CD smoke test)
+    path("healthz/", views.healthz, name="healthz"),
+
     # Sitio público
     path("", views.index, name="index"),
     path("noticia/", views.noticia, name="noticia"),

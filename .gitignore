@@ -233,3 +233,10 @@ docs/LABORATORIOS/
 # Archivos subidos por usuarios
 media/*
 !media/.gitkeep
+staticfiles/
+
+# Infra (CDK) y certificados de origen
+infra/cdk.out/
+infra/.venv/
+deploy/certs/*
+!deploy/certs/.gitkeep

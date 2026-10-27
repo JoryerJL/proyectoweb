@@ -268,3 +268,67 @@ class ProtectedViewsTests(TestCase):
     def test_staff_flag_without_permissions_is_not_enough(self):
         self.client.force_login(User.objects.create_user('s', password='x', is_staff=True))
         self.assertEqual(self._status('home:crud_noticias'), 403)
+
+
+# --- Deployment: health endpoint and env-driven settings helpers ---------------------------------
+from unittest import mock  # noqa: E402
+
+from django.core.exceptions import ImproperlyConfigured  # noqa: E402
+from django.db.utils import OperationalError  # noqa: E402
+
+from canaco import env  # noqa: E402
+
+
+class HealthCheckTests(TestCase):
+    def test_healthz_returns_ok_when_db_is_reachable(self):
+        response = self.client.get('/healthz/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'ok'})
+
+    def test_healthz_returns_503_when_db_is_down(self):
+        with mock.patch('home.views.connection.cursor', side_effect=OperationalError('down')):
+            response = self.client.get('/healthz/')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {'status': 'error'})
+
+    def test_healthz_does_not_require_login(self):
+        self.assertEqual(self.client.get('/healthz/').status_code, 200)
+
+
+class EnvHelpersTests(TestCase):
+    def test_env_bool_parses_truthy_and_falsy_values(self):
+        for raw in ('1', 'true', 'True', 'YES', 'on'):
+            with mock.patch.dict('os.environ', {'X_FLAG': raw}):
+                self.assertTrue(env.env_bool('X_FLAG', False), raw)
+        for raw in ('0', 'false', 'no', 'off', ''):
+            with mock.patch.dict('os.environ', {'X_FLAG': raw}):
+                self.assertFalse(env.env_bool('X_FLAG', True), raw)
+
+    def test_env_bool_uses_default_when_unset(self):
+        with mock.patch.dict('os.environ', {}, clear=True):
+            self.assertTrue(env.env_bool('X_FLAG', True))
+            self.assertFalse(env.env_bool('X_FLAG', False))
+
+    def test_env_list_splits_and_strips(self):
+        with mock.patch.dict('os.environ', {'X_LIST': ' a.com, b.com ,,c.com '}):
+            self.assertEqual(env.env_list('X_LIST'), ['a.com', 'b.com', 'c.com'])
+
+    def test_env_list_default_when_unset_or_empty(self):
+        with mock.patch.dict('os.environ', {'X_LIST': ''}):
+            self.assertEqual(env.env_list('X_LIST', ['d']), ['d'])
+        with mock.patch.dict('os.environ', {}, clear=True):
+            self.assertEqual(env.env_list('X_LIST'), [])
+
+    def test_production_rejects_insecure_secret_key(self):
+        with self.assertRaises(ImproperlyConfigured):
+            env.validate_production(debug=False, secret_key=env.INSECURE_SECRET_KEY)
+
+    def test_production_rejects_empty_secret_key(self):
+        with self.assertRaises(ImproperlyConfigured):
+            env.validate_production(debug=False, secret_key='')
+
+    def test_production_accepts_custom_secret_key(self):
+        env.validate_production(debug=False, secret_key='x' * 60)
+
+    def test_debug_allows_insecure_secret_key(self):
+        env.validate_production(debug=True, secret_key=env.INSECURE_SECRET_KEY)

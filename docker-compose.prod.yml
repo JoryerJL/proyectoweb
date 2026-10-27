@@ -1,0 +1,69 @@
+# Production stack: PostgreSQL + Django (gunicorn) + nginx.
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# The top-level name keeps this project (containers, network, volumes) fully
+# separate from the local dev docker-compose.yml.
+name: canaco-prod
+
+services:
+  db:
+    image: postgres:17.11
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-canaco}
+      POSTGRES_USER: ${DB_USER:-canaco}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  web:
+    image: ${IMAGE:-ghcr.io/joryerjl/proyectoweb}:${IMAGE_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - static_files:/var/www/static
+      - media_files:/var/www/media
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    image: nginx:1.31.8-alpine
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/cloudflare-realip.conf:/etc/nginx/cloudflare-realip.conf:ro
+      # Picks the origin cert (if mounted below) or generates a self-signed one.
+      - ./deploy/nginx/40-tls.sh:/docker-entrypoint.d/40-tls.sh:ro
+      # Optional Cloudflare Origin CA cert: deploy/certs/origin.pem + origin.key
+      - ./deploy/certs:/etc/nginx/origin:ro
+      - static_files:/var/www/static:ro
+      - media_files:/var/www/media:ro
+
+volumes:
+  pgdata:
+  static_files:
+  media_files:
