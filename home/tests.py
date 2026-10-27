@@ -1,6 +1,76 @@
+from django.contrib.staticfiles import finders
+from django.core.management import call_command
 from django.test import TestCase
 
-from .models import Categoria
+from .management.commands.seed_news import PUBLICACIONES
+from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Publicacion
+
+
+class SeedNewsCommandTests(TestCase):
+    def test_creates_sample_news_with_categories_and_covers(self):
+        call_command('seed_news', verbosity=0)
+
+        self.assertGreaterEqual(Categoria.objects.count(), 4)
+        publicadas = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
+        self.assertGreaterEqual(publicadas.count(), 6)
+        self.assertFalse(publicadas.filter(categoria__isnull=True).exists())
+        self.assertFalse(publicadas.filter(imagen_portada__isnull=True).exists())
+        self.assertTrue(Publicacion.objects.filter(estado=Publicacion.ESTADO_BORRADOR).exists())
+        self.assertTrue(Comentario.objects.filter(estado=Comentario.ESTADO_APROBADO).exists())
+
+    def test_is_idempotent(self):
+        call_command('seed_news', verbosity=0)
+        def counts():
+            return (
+                Categoria.objects.count(),
+                Publicacion.objects.count(),
+                Comentario.objects.count(),
+                GaleriaPublicacion.objects.count(),
+            )
+
+        before = counts()
+        call_command('seed_news', verbosity=0)
+
+        self.assertEqual(before, counts())
+
+    def test_published_news_have_gallery_photos_different_from_cover(self):
+        call_command('seed_news', verbosity=0)
+
+        for publicacion in Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO):
+            archivos = [g.archivo_id for g in publicacion.galeria.all()]
+            self.assertGreaterEqual(len(archivos), 2, publicacion.titulo)
+            self.assertNotIn(publicacion.imagen_portada_id, archivos, publicacion.titulo)
+
+    def test_every_seed_image_exists_in_static_and_is_unique_per_news(self):
+        rutas = [ruta for data in PUBLICACIONES for ruta in [data['portada'], *data.get('galeria', [])]]
+
+        self.assertEqual(len(rutas), len(set(rutas)))
+        for ruta in rutas:
+            self.assertTrue(ruta.startswith('images/news/'), ruta)
+            self.assertIsNotNone(finders.find(ruta), ruta)
+
+    def test_rerun_syncs_photos_of_existing_news(self):
+        call_command('seed_news', verbosity=0)
+        publicacion = Publicacion.objects.get(titulo=PUBLICACIONES[0]['titulo'])
+        vieja = Archivo.objects.create(nombre='old.jpg', nombre_temporal='old.jpg', ruta='images/hero_1.jpg')
+        publicacion.imagen_portada = vieja
+        publicacion.save()
+        publicacion.galeria.create(archivo=vieja)
+
+        call_command('seed_news', verbosity=0)
+
+        publicacion.refresh_from_db()
+        self.assertEqual(str(publicacion.imagen_portada.ruta), PUBLICACIONES[0]['portada'])
+        self.assertEqual(
+            sorted(str(g.archivo.ruta) for g in publicacion.galeria.all()),
+            sorted(PUBLICACIONES[0]['galeria']),
+        )
+
+    def test_publication_dates_are_spread_out(self):
+        call_command('seed_news', verbosity=0)
+
+        fechas = set(Publicacion.objects.values_list('createdat__date', flat=True))
+        self.assertGreater(len(fechas), 1)
 
 
 # Roles (auth.Group based)
@@ -122,6 +192,10 @@ class SignUpRoleTests(TestCase):
         user = User.objects.get(username='nueva')
         self.assertEqual(list(user.groups.values_list('name', flat=True)), ['Colaborador'])
         self.assertFalse(user.is_staff)
+
+    def test_seed_users_get_roles(self):
+        call_command('seed_news', verbosity=0)
+        self.assertEqual(roles.get_user_role(User.objects.get(username='lector_demo')).value, 'colaborador')
 
 
 class SidebarByRoleTests(TestCase):
