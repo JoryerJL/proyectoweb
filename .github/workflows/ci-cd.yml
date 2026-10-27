@@ -1,0 +1,249 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE_NAME: ghcr.io/joryerjl/proyectoweb
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: canaco
+          POSTGRES_USER: canaco
+          POSTGRES_PASSWORD: canaco
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U canaco -d canaco"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: canaco
+      DB_USER: canaco
+      DB_PASSWORD: canaco
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Django system check
+        run: uv run python manage.py check
+
+      - name: Check for missing migrations
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: Run tests
+        run: uv run python manage.py test
+
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Compute short SHA
+        id: vars
+        run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Add linux/arm64 here (and use a Graviton instance) to deploy on ARM.
+      - name: Build (and push on master)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  infra:
+    name: Infra (CDK tests + synth)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: infra/uv.lock
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Unit tests
+        run: uv run pytest -q
+
+      # Pinned CLI; must support the cloud assembly schema of the pinned aws-cdk-lib.
+      # "-c account" lets synth reuse the committed cdk.context.json (pinned AMI) offline.
+      - name: Synthesize (no AWS credentials needed)
+        run: npx --yes aws-cdk@2.1128.1 synth -c budgetEmail=ci@example.com -c account=888577060863 --quiet
+
+  deploy:
+    name: Deploy to EC2 (SSM)
+    runs-on: ubuntu-latest
+    needs: [build, infra]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      AWS_REGION: us-east-1
+      IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+      SITE_URL: https://canaco.jjjl.dev
+    steps:
+      # Environment-level variables are not visible to job-level "if", so the gate is a
+      # step: until AWS_DEPLOY_ROLE_ARN is set, the remaining steps are skipped (no failure).
+      - name: Check deploy configuration
+        id: gate
+        env:
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::notice::AWS_DEPLOY_ROLE_ARN is not set in the production environment; skipping deploy."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Find the production instance
+        id: instance
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          ids=$(aws ec2 describe-instances \
+            --filters Name=tag:Project,Values=canaco Name=tag:Environment,Values=prod \
+                      Name=instance-state-name,Values=running \
+            --query 'Reservations[].Instances[].InstanceId' --output text)
+          if [ "$(wc -w <<<"$ids")" -ne 1 ]; then
+            echo "Expected exactly one running instance, got: '${ids}'" >&2
+            exit 1
+          fi
+          echo "id=${ids}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy with SSM Run Command
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          INSTANCE_ID: ${{ steps.instance.outputs.id }}
+        run: |
+          # The tag is written to .env so a reboot keeps running this version.
+          script=$(cat <<EOF
+          set -euo pipefail
+          export HOME=/root
+          cd /opt/canaco
+          git pull --ff-only
+          if grep -q '^IMAGE_TAG=' .env; then
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" .env
+          else
+            echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+          fi
+          docker compose -f docker-compose.prod.yml pull web
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          docker image prune -af
+          EOF
+          )
+          jq -n --arg s "$script" '{commands: [$s]}' > params.json
+
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Deploy ${IMAGE_TAG}" \
+            --timeout-seconds 600 \
+            --parameters file://params.json \
+            --query Command.CommandId --output text)
+          echo "Command: ${command_id}"
+
+          # "aws ssm wait" gives up after ~100 s, too short for an image pull:
+          # poll for up to ~12 minutes instead (SSM itself stops the script at 600 s).
+          status=Pending
+          for _ in $(seq 1 72); do
+            sleep 10
+            status=$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+          done
+
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query '[StandardOutputContent, StandardErrorContent]' --output text
+          echo "Final status: ${status}"
+          if [ "$status" != "Success" ]; then
+            echo "Deployment failed." >&2
+            exit 1
+          fi
+
+      - name: Smoke test
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${SITE_URL}/healthz/"; then
+              echo
+              echo "Smoke test passed (attempt $i)."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Smoke test failed" >&2
+          exit 1
