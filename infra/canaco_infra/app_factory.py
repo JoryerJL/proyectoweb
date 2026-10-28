@@ -13,7 +13,7 @@ DEFAULTS: dict[str, Any] = {
     "instanceType": "t3.micro",
     "domain": "canaco.jjjl.dev",
     "repoUrl": "https://github.com/JoryerJL/proyectoweb.git",
-    "githubRepo": "JoryerJL/proyectoweb",
+    "githubSubPrefix": "repo:JoryerJL@146901957/proyectoweb@1380498266",
     "monthlyBudgetUsd": 15,
     "owner": "joryer",
     "costCenter": "m4-proyectoweb",
@@ -51,7 +51,7 @@ def create_app(
         instance_type=str(get("instanceType")),
         domain=str(get("domain")),
         repo_url=str(get("repoUrl")),
-        github_repo=str(get("githubRepo")),
+        github_sub_prefix=str(get("githubSubPrefix")),
         monthly_budget_usd=float(get("monthlyBudgetUsd")),
         budget_email=str(budget_email),
     )

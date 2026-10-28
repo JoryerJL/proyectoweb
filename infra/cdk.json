@@ -8,7 +8,7 @@
     "instanceType": "t3.micro",
     "domain": "canaco.jjjl.dev",
     "repoUrl": "https://github.com/JoryerJL/proyectoweb.git",
-    "githubRepo": "JoryerJL/proyectoweb",
+    "githubSubPrefix": "repo:JoryerJL@146901957/proyectoweb@1380498266",
     "monthlyBudgetUsd": 15,
     "owner": "joryer",
     "costCenter": "m4-proyectoweb",

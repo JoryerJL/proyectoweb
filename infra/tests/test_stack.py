@@ -305,8 +305,10 @@ def test_deploy_role_trust_is_exact(template):
                         "Condition": {
                             "StringEquals": {
                                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                                # The repo uses GitHub's immutable OIDC subject (owner/repo IDs).
                                 "token.actions.githubusercontent.com:sub": (
-                                    "repo:JoryerJL/proyectoweb:environment:production"
+                                    "repo:JoryerJL@146901957/proyectoweb@1380498266"
+                                    ":environment:production"
                                 ),
                             }
                         },

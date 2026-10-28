@@ -20,7 +20,7 @@ cdk deploy -c budgetEmail=tu@correo.com   # crea los recursos (genera costos)
 | `instanceType` | `t3.micro` | Debe ser x86_64 y de tipo burstable (créditos `standard`) |
 | `domain` | `canaco.jjjl.dev` | Se usa en `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` |
 | `repoUrl` | repositorio público en GitHub | Se clona en `/opt/canaco` |
-| `githubRepo` | `JoryerJL/proyectoweb` | Repositorio autorizado en el rol OIDC |
+| `githubSubPrefix` | `repo:JoryerJL@146901957/proyectoweb@1380498266` | Prefijo del claim `sub` autorizado en el rol OIDC (formato inmutable con IDs; se consulta con `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`) |
 | `monthlyBudgetUsd` | `15` | Presupuesto mensual filtrado por la etiqueta `Project=canaco` |
 | `owner` / `costCenter` | `joryer` / `m4-proyectoweb` | Etiquetas FinOps |
 

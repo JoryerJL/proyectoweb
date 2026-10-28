@@ -87,7 +87,15 @@ Las IP reales de los visitantes se leen de `CF-Connecting-IP` (nginx confía sol
 
 Mientras la variable `AWS_DEPLOY_ROLE_ARN` no exista, el job de despliegue se omite sin fallar.
 
-El rol solo confía en tokens de `repo:JoryerJL/proyectoweb:environment:production` y solo puede ejecutar `AWS-RunShellScript` en instancias con la etiqueta `Project=canaco`. Si cambias el nombre del repositorio o del entorno, vuelve a ejecutar `cdk deploy -c githubRepo=...`.
+El rol solo confía en tokens con `sub` igual a `repo:JoryerJL@146901957/proyectoweb@1380498266:environment:production` y solo puede ejecutar `AWS-RunShellScript` en instancias con la etiqueta `Project=canaco`.
+
+El repositorio usa el **sujeto inmutable** de GitHub OIDC, que incluye los IDs numéricos del dueño y del repositorio. Así, un repositorio recreado con el mismo nombre no obtiene acceso al rol. Para ver el formato que emite tu repositorio:
+
+```bash
+gh api repos/JoryerJL/proyectoweb/actions/oidc/customization/sub
+```
+
+Si el `sub_claim_prefix` cambia (otro repositorio o dueño), vuelve a ejecutar `cdk deploy -c githubSubPrefix=<prefijo>`. Si el deploy falla con `Not authorized to perform sts:AssumeRoleWithWebIdentity`, revisa primero que este prefijo coincida.
 
 ## 6. Primer arranque
 

@@ -28,7 +28,7 @@ class CanacoProdStack(cdk.Stack):
         instance_type: str,
         domain: str,
         repo_url: str,
-        github_repo: str,
+        github_sub_prefix: str,
         monthly_budget_usd: float,
         budget_email: str,
         **kwargs,
@@ -186,7 +186,7 @@ class CanacoProdStack(cdk.Stack):
                     "StringEquals": {
                         f"{GITHUB_OIDC_HOST}:aud": "sts.amazonaws.com",
                         f"{GITHUB_OIDC_HOST}:sub": (
-                            f"repo:{github_repo}:environment:{GITHUB_ENVIRONMENT}"
+                            f"{github_sub_prefix}:environment:{GITHUB_ENVIRONMENT}"
                         ),
                     }
                 },
