@@ -95,6 +95,8 @@ cdk deploy -c budgetEmail=tu@correo.com
 
 Guía completa (Cloudflare, GitHub, costos, respaldos, rollback): [`docs/despliegue-ec2.md`](docs/despliegue-ec2.md).
 
+¿Prefieres Azure? Guía paso a paso para una máquina virtual de Azure (concepto por concepto frente a AWS): [`docs/despliegue-azure.md`](docs/despliegue-azure.md).
+
 ## CI/CD
 
 El flujo [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) ejecuta:
