@@ -154,7 +154,7 @@ class CanacoProdStack(cdk.Stack):
         dlm.CfnLifecyclePolicy(
             self,
             "DailySnapshots",
-            description="Daily EBS snapshots of volumes tagged Backup=daily (retain 7)",
+            description="Daily EBS snapshots of volumes tagged Backup daily - retain 7",
             state="ENABLED",
             execution_role_arn=dlm_role.role_arn,
             policy_details=dlm.CfnLifecyclePolicy.PolicyDetailsProperty(

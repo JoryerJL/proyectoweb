@@ -240,6 +240,16 @@ def test_dlm_daily_snapshots_retain_7(template):
     )
 
 
+def test_dlm_description_matches_api_pattern(template):
+    # The DLM API rejects descriptions outside [0-9A-Za-z _-]+ at deploy time.
+    import re
+
+    policies = template.find_resources("AWS::DLM::LifecyclePolicy")
+    for policy in policies.values():
+        description = policy["Properties"]["Description"]
+        assert re.fullmatch(r"[0-9A-Za-z _-]{1,500}", description), description
+
+
 def test_dlm_role_uses_managed_policy(template):
     template.has_resource_properties(
         "AWS::IAM::Role",
