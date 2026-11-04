@@ -1,0 +1,16 @@
+{% extends 'partials/base.html' %}
+{% block title %}Página no encontrada{% endblock %}
+{% block og_title %}Página no encontrada{% endblock %}
+{% block content %}
+<section class="section" style="padding-top: clamp(1.5rem, 4vw, 2.5rem);">
+    <div class="container">
+        <div class="empty-state">
+            <i class="bi bi-compass" aria-hidden="true"></i>
+            <h1>Página no encontrada</h1>
+            <p>La dirección que buscas no existe o fue movida.</p>
+            <a href="{% url 'home:index' %}" class="btn btn-primary btn-sm">Volver al inicio</a>
+            <a href="{% url 'home:categoria' %}" class="btn btn-soft btn-sm">Ver todas las noticias</a>
+        </div>
+    </div>
+</section>
+{% endblock content %}

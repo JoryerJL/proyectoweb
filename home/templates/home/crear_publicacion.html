@@ -13,15 +13,16 @@
 </div>
 
 <div class="form-card form-card-wide">
+    {% include 'partials/form_errors.html' %}
     <form class="formEditor" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="field">
             <label for="titulo">Título</label>
-            <input type="text" id="titulo" name="titulo" value="{{ publicacion.titulo|default:'' }}" placeholder="Un título claro y corto" required>
+            <input type="text" id="titulo" name="titulo" value="{{ form.titulo.value|default:'' }}" maxlength="180" placeholder="Un título claro y corto" required>
         </div>
         <div class="field">
             <label for="resumen">Resumen</label>
-            <textarea id="resumen" name="resumen" rows="3" placeholder="En una o dos frases, ¿de qué trata?" required>{{ publicacion.resumen|default:'' }}</textarea>
+            <textarea id="resumen" name="resumen" rows="3" placeholder="En una o dos frases, ¿de qué trata?" required>{{ form.resumen.value|default:'' }}</textarea>
         </div>
         <div class="field-grid">
             <div class="field">
@@ -29,15 +30,15 @@
                 <select id="categoria" name="categoria">
                     <option value="">Sin categoría</option>
                     {% for categoria in categorias %}
-                    <option value="{{ categoria.id }}" {% if publicacion and publicacion.categoria.id == categoria.id %}selected{% endif %}>{{ categoria.nombre }}</option>
+                    <option value="{{ categoria.id }}" {% if form.categoria.value|stringformat:'s' == categoria.id|stringformat:'s' %}selected{% endif %}>{{ categoria.nombre }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="field">
                 <label for="estado">Estado</label>
                 <select id="estado" name="estado">
-                    <option value="borrador" {% if publicacion and publicacion.estado == 'borrador' %}selected{% endif %}>Borrador</option>
-                    <option value="publicado" {% if publicacion and publicacion.estado == 'publicado' %}selected{% endif %}>Publicado</option>
+                    <option value="borrador" {% if form.estado.value == 'borrador' %}selected{% endif %}>Borrador</option>
+                    <option value="publicado" {% if form.estado.value == 'publicado' %}selected{% endif %}>Publicado</option>
                 </select>
             </div>
         </div>
@@ -50,7 +51,7 @@
         </div>
         <div class="field editor-shell">
             <label for="editor">Contenido</label>
-            <div id="editor">{% if publicacion %}{{ publicacion.contenido|safe }}{% endif %}</div>
+            <div id="editor">{{ contenido_inicial|safe }}</div>
             <input type="hidden" name="contenido" id="contenido">
         </div>
         <div class="field">

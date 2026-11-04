@@ -82,7 +82,7 @@ from . import roles  # noqa: E402
 
 
 def make_user(username, role=None, **extra):
-    user = User.objects.create_user(username=username, password='pass12345', **extra)
+    user = User.objects.create_user(username=username, password='Zq7!tR2#vLm9', **extra)
     if role:
         roles.assign_role(user, role)
     return user
@@ -146,7 +146,7 @@ class UserRoleManagementViewsTests(TestCase):
 
     def _payload(self, **extra):
         data = {'username': 'nuevo', 'email': 'n@x.com', 'first_name': 'Nu',
-                'password1': 'pass12345', 'password2': 'pass12345', 'rol': 'editor'}
+                'password1': 'Zq7!tR2#vLm9', 'password2': 'Zq7!tR2#vLm9', 'rol': 'editor'}
         data.update(extra)
         return data
 
@@ -187,7 +187,7 @@ class SignUpRoleTests(TestCase):
     def test_sign_up_assigns_colaborador(self):
         self.client.post(reverse('home:sign_up'), {
             'username': 'nueva', 'email': 'nueva@x.com', 'first_name': 'N',
-            'password1': 'pass12345', 'password2': 'pass12345',
+            'password1': 'Zq7!tR2#vLm9', 'password2': 'Zq7!tR2#vLm9',
         })
         user = User.objects.get(username='nueva')
         self.assertEqual(list(user.groups.values_list('name', flat=True)), ['Colaborador'])

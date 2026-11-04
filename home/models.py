@@ -1,5 +1,44 @@
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import IntegrityError, models, transaction
+from django.urls import reverse
+from django.utils.text import slugify
+
+from .sanitize import clean_html
+
+SLUG_MAX_LENGTH = 220
+
+
+def save_with_unique_slug(instance, model, source, fallback, save):
+    """Run ``save`` and retry once if a concurrent insert took the same slug."""
+    instance.slug = generate_unique_slug(model, source, fallback)
+    try:
+        with transaction.atomic():
+            save()
+    except IntegrityError:
+        if not model.objects.filter(slug=instance.slug).exists():
+            raise
+        # Skip past the slug that just lost the race.
+        n = int(instance.slug.rsplit('-', 1)[-1]) + 1 if instance.slug.rsplit('-', 1)[-1].isdigit() else 2
+        instance.slug = generate_unique_slug(model, source, fallback, start=n)
+        save()
+
+
+def generate_unique_slug(model, source, fallback, start=1):
+    """Return a slug for ``source`` that no other ``model`` row uses.
+
+    Collisions get a ``-2``, ``-3``... suffix. A purely numeric slug would be
+    swallowed by the legacy ``<int:pk>`` redirect routes, so it gets a suffix too.
+    """
+    base = slugify(source)[: SLUG_MAX_LENGTH - 10].strip('-') or fallback
+    if base.isdigit():
+        base = f'{base}-{fallback}'
+    slug, n = base, start
+    if n > 1:
+        slug = f'{base}-{n}'
+    while model.objects.filter(slug=slug).exists():
+        n += 1
+        slug = f'{base}-{n}'
+    return slug
 
 
 class Categoria(models.Model):
@@ -10,6 +49,7 @@ class Categoria(models.Model):
         verbose_name='ID',
     )
     nombre = models.CharField(max_length=60)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, unique=True, blank=True)
     createdat = models.DateTimeField(auto_now_add=True)
     updatedat = models.DateTimeField(null=True, blank=True)
     fk_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -21,6 +61,18 @@ class Categoria(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def save(self, *args, **kwargs):
+        # Generated once: the slug never changes on edit so public URLs stay stable.
+        if not self.slug:
+            save_with_unique_slug(
+                self, Categoria, self.nombre, 'categoria', lambda: super(Categoria, self).save(*args, **kwargs),
+            )
+        else:
+            super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('home:categoria_detalle', kwargs={'slug': self.slug})
 
 
 class Archivo(models.Model):
@@ -68,6 +120,7 @@ class Publicacion(models.Model):
     ]
 
     titulo = models.CharField(max_length=180)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, unique=True, blank=True)
     resumen = models.TextField()
     contenido = models.TextField()
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True)
@@ -88,9 +141,28 @@ class Publicacion(models.Model):
         managed = True
         db_table = 'publicacion'
         verbose_name_plural = 'Publicaciones'
+        indexes = [
+            models.Index(fields=['estado', '-createdat'], name='publicacion_estado_created_idx'),
+            models.Index(fields=['categoria'], name='publicacion_categoria_idx'),
+            models.Index(fields=['createdat'], name='publicacion_createdat_idx'),
+        ]
 
     def __str__(self):
         return self.titulo
+
+    def save(self, *args, **kwargs):
+        # Quill HTML is rendered with |safe, so it is sanitized on every write.
+        self.contenido = clean_html(self.contenido)
+        # Generated once: the slug never changes on edit so public URLs stay stable.
+        if not self.slug:
+            save_with_unique_slug(
+                self, Publicacion, self.titulo, 'noticia', lambda: super(Publicacion, self).save(*args, **kwargs),
+            )
+        else:
+            super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('home:noticia_detalle', kwargs={'slug': self.slug})
 
 
 class GaleriaPublicacion(models.Model):
@@ -126,3 +198,23 @@ class Comentario(models.Model):
         managed = True
         db_table = 'comentario'
         verbose_name_plural = 'Comentarios'
+        indexes = [
+            models.Index(fields=['estado'], name='comentario_estado_idx'),
+        ]
+
+
+class MensajeContacto(models.Model):
+    nombre = models.CharField(max_length=100)
+    email = models.EmailField()
+    asunto = models.CharField(max_length=120)
+    mensaje = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    atendido = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'mensaje_contacto'
+        verbose_name_plural = 'Mensajes de contacto'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.asunto} - {self.nombre}'

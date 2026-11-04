@@ -26,31 +26,32 @@
             <p>Estos datos serán guardados en tu perfil.</p>
 
             {% include 'partials/messages.html' %}
+            {% include 'partials/form_errors.html' %}
 
             <form method="POST" class="profile-edit-form">
                 {% csrf_token %}
                 <div class="field-grid">
                     <div class="field profile-form-row">
                         <label for="username">Usuario</label>
-                        <input type="text" id="username" name="username" autocomplete="username" required>
+                        <input type="text" id="username" name="username" value="{{ form.username.value|default:'' }}" autocomplete="username" required>
                     </div>
                     <div class="field profile-form-row">
                         <label for="email">Correo</label>
-                        <input type="email" id="email" name="email" autocomplete="email" required>
+                        <input type="email" id="email" name="email" value="{{ form.email.value|default:'' }}" autocomplete="email" required>
                     </div>
                 </div>
                 <div class="field profile-form-row">
                     <label for="first_name">Nombre</label>
-                    <input type="text" id="first_name" name="first_name" autocomplete="given-name">
+                    <input type="text" id="first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" autocomplete="given-name">
                 </div>
                 <div class="field-grid">
                     <div class="field profile-form-row">
                         <label for="apellido_paterno">Apellido paterno</label>
-                        <input type="text" id="apellido_paterno" name="apellido_paterno">
+                        <input type="text" id="apellido_paterno" name="apellido_paterno" value="{{ form.apellido_paterno.value|default:'' }}">
                     </div>
                     <div class="field profile-form-row">
                         <label for="apellido_materno">Apellido materno</label>
-                        <input type="text" id="apellido_materno" name="apellido_materno">
+                        <input type="text" id="apellido_materno" name="apellido_materno" value="{{ form.apellido_materno.value|default:'' }}">
                     </div>
                 </div>
                 <div class="field-grid">

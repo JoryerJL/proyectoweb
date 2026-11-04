@@ -12,28 +12,29 @@
 
 <div class="form-card profile-edit-card" style="max-width:560px">
     {% include 'partials/messages.html' %}
+    {% include 'partials/form_errors.html' %}
 
     <form method="POST" class="profile-edit-form">
         {% csrf_token %}
         <div class="field profile-form-row">
-            <label for="actual">Contraseña actual</label>
+            <label for="old_password">Contraseña actual</label>
             <div class="password-field">
-                <input type="password" id="actual" name="actual" autocomplete="current-password" required>
+                <input type="password" id="old_password" name="old_password" autocomplete="current-password" required>
                 <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
             </div>
         </div>
         <div class="field profile-form-row">
-            <label for="nueva">Nueva contraseña</label>
+            <label for="new_password1">Nueva contraseña</label>
             <div class="password-field">
-                <input type="password" id="nueva" name="nueva" autocomplete="new-password" required>
+                <input type="password" id="new_password1" name="new_password1" autocomplete="new-password" required>
                 <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
             </div>
             <p class="field-hint">Usa al menos 8 caracteres y evita datos fáciles de adivinar.</p>
         </div>
         <div class="field profile-form-row">
-            <label for="confirmar">Confirmar contraseña</label>
+            <label for="new_password2">Confirmar contraseña</label>
             <div class="password-field">
-                <input type="password" id="confirmar" name="confirmar" autocomplete="new-password" required>
+                <input type="password" id="new_password2" name="new_password2" autocomplete="new-password" required>
                 <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
             </div>
         </div>

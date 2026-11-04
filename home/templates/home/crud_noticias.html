@@ -34,7 +34,7 @@
             <tbody>
                 {% for noticia in publicaciones %}
                 <tr>
-                    <td class="cell-title"><a href="{% url 'home:noticia_detalle' noticia.id %}">{{ noticia.titulo }}</a></td>
+                    <td class="cell-title"><a href="{{ noticia.get_absolute_url }}">{{ noticia.titulo }}</a></td>
                     <td class="cell-muted">{% if noticia.autor %}{{ noticia.autor.username }}{% else %}-{% endif %}</td>
                     <td class="cell-muted">{{ noticia.createdat|date:"Y-m-d" }}</td>
                     <td class="cell-muted">{{ noticia.updatedat|date:"Y-m-d" }}</td>
@@ -48,9 +48,12 @@
                     </td>
                     <td>
                         <div class="row-actions">
-                            <a href="{% url 'home:noticia_detalle' noticia.id %}" class="btn btn-ghost" title="Ver"><i class="bi bi-eye" aria-hidden="true"></i><span class="visually-hidden">Ver</span></a>
+                            <a href="{{ noticia.get_absolute_url }}" class="btn btn-ghost" title="Ver"><i class="bi bi-eye" aria-hidden="true"></i><span class="visually-hidden">Ver</span></a>
                             <a href="{% url 'home:editar_publicacion' noticia.id %}" class="btn btn-ghost">Editar</a>
-                            <a href="{% url 'home:publicar_publicacion' noticia.id %}" class="btn btn-ghost is-success">{% if noticia.estado == 'publicado' %}Ocultar{% else %}Publicar{% endif %}</a>
+                            <form method="post" action="{% url 'home:publicar_publicacion' noticia.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost is-success">{% if noticia.estado == 'publicado' %}Ocultar{% else %}Publicar{% endif %}</button>
+                            </form>
                             <form method="post" action="{% url 'home:eliminar_publicacion' noticia.id %}" data-confirm="¿Eliminar «{{ noticia.titulo }}»? Esta acción no se puede deshacer.">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>

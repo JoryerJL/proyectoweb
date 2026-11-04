@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from .env import INSECURE_SECRET_KEY, env_bool, env_list, validate_production
@@ -23,33 +24,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # Every deployment-specific value comes from environment variables.
-# With no variables set the defaults below give a working local dev setup.
+# DEBUG is off unless DJANGO_DEBUG is truthy: local development needs DJANGO_DEBUG=1.
+
+# True while running `manage.py test` (the test runner forces DEBUG off anyway).
+TESTING = 'test' in sys.argv[1:2]
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or INSECURE_SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DJANGO_DEBUG', True)
+DEBUG = env_bool('DJANGO_DEBUG', False)
 
 # Production must not start with DEBUG off and the public default secret key.
-validate_production(DEBUG, SECRET_KEY)
+if not TESTING:
+    validate_production(DEBUG, SECRET_KEY)
 
 # localhost entries keep container healthchecks and smoke tests working.
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS') + (['localhost', '127.0.0.1'] if not DEBUG else [])
 
-# Full origins including scheme, e.g. https://example.com
+# Full origins including scheme, e.g. https://example.com (comma-separated).
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
-# Behind a TLS-terminating proxy (nginx, ALB, Caddy) that sets X-Forwarded-Proto.
-if env_bool('DJANGO_USE_PROXY_SSL_HEADER', False):
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# Enable these once the site is served over HTTPS.
-SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', False)
-SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
-SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', False)
-CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', False)
-SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', '0'))
+# Security hardening. DEBUG keeps everything relaxed so plain-HTTP runserver works.
+if not DEBUG:
+    # TLS ends at Cloudflare/nginx, which set X-Forwarded-Proto. Gunicorn is never exposed directly.
+    if env_bool('DJANGO_USE_PROXY_SSL_HEADER', True):
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Off by default: the proxy already redirects HTTP to HTTPS.
+    SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', False)
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
+    # Secure cookies by default; set to false only for plain-HTTP smoke tests.
+    SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', True)
+    CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', True)
+    SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', '0'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', False)
+    SECURE_HSTS_PRELOAD = env_bool('DJANGO_SECURE_HSTS_PRELOAD', False)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    X_FRAME_OPTIONS = 'DENY'
 
 
 # Application definition
@@ -61,6 +73,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
+    'django.contrib.sitemaps',
     'home',
 ]
 
@@ -74,12 +88,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+if not (DEBUG or TESTING):
+    # Serves collected static files straight from gunicorn (nginx also serves /static/ in the compose stack).
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
 ROOT_URLCONF = 'canaco.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -109,6 +127,24 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT', '5435'),
     }
 }
+
+
+# Caching
+# Local-memory cache in normal runs; disabled under `manage.py test` because
+# TestCase rolls back rows without firing signals, which would leave stale entries.
+# Tests that exercise caching opt in with override_settings(CACHES=...).
+
+# Production runs several gunicorn workers, so the cache must be shared between
+# processes (LocMemCache invalidation would only reach one worker).
+if 'test' in sys.argv[1:2]:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': os.environ.get('DJANGO_CACHE_DIR', '/tmp/canaco_cache'),
+        }
+    }
 
 
 # Password validation
@@ -149,6 +185,20 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = Path(os.environ.get('DJANGO_STATIC_ROOT', BASE_DIR / 'staticfiles'))
 
+# Hashed, compressed files in production. Plain storage under DEBUG and tests, where
+# the manifest would raise on any static file that has not been collected.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage'
+            if DEBUG or TESTING
+            else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        ),
+    },
+}
+
+# User uploads: nginx serves /media/ from a shared volume in production (see deploy/nginx).
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.environ.get('DJANGO_MEDIA_ROOT', BASE_DIR / 'media'))
 
@@ -160,8 +210,43 @@ LOGOUT_REDIRECT_URL = 'home:login'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', '25'))
+EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = env_bool('DJANGO_EMAIL_USE_TLS', False)
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'Canaco <no-reply@localhost>')
+# Inbox that receives contact-form messages. Empty disables the notification email.
+CONTACT_EMAIL = os.environ.get('DJANGO_CONTACT_EMAIL', '')
+
+# Number of news items loaded per page (and per infinite-scroll request).
+NEWS_PAGE_SIZE = 9
+
+# Sites framework (required by the sitemap). Set the public domain with
+# `manage.py set_site_domain` (reads DJANGO_SITE_DOMAIN).
+SITE_ID = 1
+
+
+# Logging
+# Everything goes to stderr, which gunicorn/Docker capture. Quiet in tests.
+
+LOG_LEVEL = 'CRITICAL' if TESTING else os.environ.get('DJANGO_LOG_LEVEL', 'INFO')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'default'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': LOG_LEVEL},
+        'home': {'handlers': ['console'], 'level': LOG_LEVEL},
     },
 }

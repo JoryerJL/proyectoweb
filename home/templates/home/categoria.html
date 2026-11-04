@@ -1,6 +1,9 @@
 {% extends 'partials/base.html' %}
 {% load static %}
 {% block title %}{{ categoria_actual.nombre|default:"Categorías" }}{% endblock %}
+{% block description %}{% if categoria_actual %}Noticias de {{ categoria_actual.nombre }} en Canaco.{% else %}Todas las noticias del comercio local de Canaco.{% endif %}{% endblock %}
+{% block og_title %}{{ categoria_actual.nombre|default:"Categorías" }}{% endblock %}
+{% block og_description %}{% if categoria_actual %}Noticias de {{ categoria_actual.nombre }} en Canaco.{% else %}Todas las noticias del comercio local de Canaco.{% endif %}{% endblock %}
 {% block content %}
 <section class="section" style="padding-top: clamp(1.5rem, 4vw, 2.5rem);">
     <div class="container">
@@ -18,41 +21,29 @@
                     {% endif %}
                 </nav>
                 <h1 class="posts-entry-title">{% if busqueda %}Resultados para «{{ busqueda }}»{% else %}{{ categoria_actual.nombre|default:"Todas las noticias" }}{% endif %}</h1>
-                <p>{{ publicaciones|length }} noticia{{ publicaciones|length|pluralize }} {% if categoria_actual %}en este tema{% else %}publicada{{ publicaciones|length|pluralize }}{% endif %}</p>
+                <p>{{ page_obj.paginator.count }} noticia{{ page_obj.paginator.count|pluralize }} {% if categoria_actual %}en este tema{% else %}publicada{{ page_obj.paginator.count|pluralize }}{% endif %}</p>
             </div>
             <div class="field mb-0">
                 <label for="cambiar-categoria" class="visually-hidden">Cambiar de categoría</label>
-                <select id="cambiar-categoria" class="form-control" onchange="if (this.value) window.location.href = this.value;">
+                <select id="cambiar-categoria" class="form-control" data-category-select>
                     <option value="{% url 'home:categoria' %}">Todas las categorías</option>
-                    {% for cat in categorias %}
-                    <option value="{% url 'home:categoria_detalle' cat.id %}" {% if categoria_actual and categoria_actual.id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                    {% for cat in global_categorias %}
+                    <option value="{{ cat.get_absolute_url }}"{% if categoria_actual and categoria_actual.id == cat.id %} selected{% endif %}>{{ cat.nombre }}</option>
                     {% endfor %}
                 </select>
             </div>
         </div>
 
-        {% if publicaciones %}
-        <div class="post-list">
-            {% for item in publicaciones %}
-            <article class="post-row">
-                {% if item.imagen_portada %}
-                <img src="{{ item.imagen_portada.display_url }}" alt="" class="category-post-image" loading="lazy">
-                {% else %}
-                <img src="{% static 'images/hero_1.jpg' %}" alt="" class="category-post-image" loading="lazy">
-                {% endif %}
-                <div>
-                    <div class="post-meta">
-                        {% if not categoria_actual %}<span><i class="bi bi-tag" aria-hidden="true"></i>{{ item.categoria.nombre|default:"Sin categoría" }}</span>{% endif %}
-                        <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
-                        <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }} visitas</span>
-                    </div>
-                    <h2><a href="{% url 'home:noticia_detalle' item.id %}">{{ item.titulo }}</a></h2>
-                    <p>{{ item.resumen }}</p>
-                    <span class="link-arrow">Leer más <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
-                </div>
-            </article>
-            {% endfor %}
+        {% if page_obj.paginator.count %}
+        <div class="post-list" id="post-list" data-infinite-scroll data-next-url="{{ next_url }}" aria-live="polite" aria-busy="false">
+            {% include 'home/partials/post_rows.html' %}
         </div>
+        {% if next_url %}
+        <div data-infinite-sentinel aria-hidden="true"></div>
+        <p class="load-more">
+            <a class="btn btn-soft" data-infinite-more href="{{ next_url }}">Cargar más</a>
+        </p>
+        {% endif %}
         {% else %}
         <div class="empty-state">
             <i class="bi bi-inbox" aria-hidden="true"></i>

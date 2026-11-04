@@ -33,6 +33,9 @@ PY
 echo "[entrypoint] Applying migrations..."
 python manage.py migrate --noinput
 
+echo "[entrypoint] Setting site domain (no-op without DJANGO_SITE_DOMAIN)..."
+python manage.py set_site_domain
+
 echo "[entrypoint] Collecting static files..."
 python manage.py collectstatic --noinput
 

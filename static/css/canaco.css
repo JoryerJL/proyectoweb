@@ -1227,3 +1227,8 @@ input[type="file"]::file-selector-button {
     scroll-behavior: auto !important;
   }
 }
+
+.load-more { margin-top: 1.5rem; text-align: center; }
+
+.form-errors { margin: 0; padding-left: 1.1rem; }
+.hp-field { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }

@@ -35,7 +35,7 @@
                 <ul class="mini-posts">
                     {% for item in global_recientes %}
                     <li>
-                        <a href="{% url 'home:noticia_detalle' item.id %}">
+                        <a href="{{ item.get_absolute_url }}">
                             {% if item.imagen_portada %}
                             <img src="{{ item.imagen_portada.display_url }}" alt="" loading="lazy">
                             {% else %}
