@@ -14,10 +14,10 @@ uv sync                            # instala dependencias desde uv.lock
 uv run python manage.py migrate
 uv run python manage.py seed_news  # opcional: noticias y categorías de ejemplo
 uv run python manage.py createsuperuser
-uv run python manage.py runserver
+DJANGO_DEBUG=1 uv run python manage.py runserver
 ```
 
-Abre <http://127.0.0.1:8000/>. En desarrollo no necesitas variables de entorno: los valores por defecto de `canaco/settings.py` apuntan a la base de datos del `docker-compose.yml`.
+Abre <http://127.0.0.1:8000/>. `DJANGO_DEBUG=1` es necesario para `runserver` (sin él la app arranca en modo producción y exige `DJANGO_SECRET_KEY`; el proyecto no carga ningún archivo `.env`, exporta la variable o antepónla al comando). Los demás valores por defecto de `canaco/settings.py` apuntan a la base de datos del `docker-compose.yml`. Los tests (`manage.py test`) no necesitan variables.
 
 ## Funcionalidades
 
@@ -44,19 +44,21 @@ Abre <http://127.0.0.1:8000/>. En desarrollo no necesitas variables de entorno: 
 
 ## Variables de entorno
 
-Todas son opcionales en desarrollo. En producción se definen en `.env` (plantilla en [`deploy/env.example`](deploy/env.example)).
+Todas son opcionales en desarrollo (salvo `DJANGO_DEBUG=1` para `runserver`). En producción se definen en `.env` (plantilla en [`deploy/env.example`](deploy/env.example)).
 
 | Variable | Por defecto | Descripción |
 |----------|-------------|-------------|
 | `DJANGO_SECRET_KEY` | llave insegura de desarrollo | Obligatoria si `DJANGO_DEBUG=false` |
-| `DJANGO_DEBUG` | `true` | Debe ser `false` en producción |
+| `DJANGO_DEBUG` | `false` | `1` solo en desarrollo local |
 | `DJANGO_ALLOWED_HOSTS` | vacío | Hosts permitidos, separados por comas |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | vacío | Orígenes con esquema, separados por comas |
-| `DJANGO_USE_PROXY_SSL_HEADER` | `false` | Confía en `X-Forwarded-Proto` del proxy |
+| `DJANGO_USE_PROXY_SSL_HEADER` | `true` (sin DEBUG) | Confía en `X-Forwarded-Proto` del proxy |
 | `DJANGO_SECURE_SSL_REDIRECT` | `false` | Redirige HTTP a HTTPS |
-| `DJANGO_SESSION_COOKIE_SECURE` / `DJANGO_CSRF_COOKIE_SECURE` | `false` | Cookies solo por HTTPS |
+| `DJANGO_SESSION_COOKIE_SECURE` / `DJANGO_CSRF_COOKIE_SECURE` | `true` (sin DEBUG) | Cookies solo por HTTPS; `false` solo para pruebas por HTTP plano |
 | `DJANGO_SECURE_HSTS_SECONDS` | `0` | Duración de HSTS |
-| `DJANGO_STATIC_ROOT` / `DJANGO_MEDIA_ROOT` | `staticfiles/` / `media/` | Rutas de archivos estáticos y subidos |
+| `DJANGO_SITE_DOMAIN` | vacío | Dominio público para `sitemap.xml`; se aplica con `manage.py set_site_domain` (el entrypoint lo ejecuta) |
+| `DJANGO_LOG_LEVEL` | `INFO` | Nivel de logs de `django` y `home` (stderr) |
+| `DJANGO_STATIC_ROOT` / `DJANGO_MEDIA_ROOT` | `staticfiles/` / `media/` | Rutas de archivos estáticos y subidos. En producción WhiteNoise sirve `/static/` desde gunicorn y nginx sirve `/media/` desde el volumen compartido |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD` | `canaco` | Credenciales de PostgreSQL |
 | `DB_HOST`, `DB_PORT` | `localhost`, `5435` | Servidor de PostgreSQL |
 | `IMAGE`, `IMAGE_TAG` | `ghcr.io/joryerjl/proyectoweb`, `latest` | Imagen que usa `docker-compose.prod.yml` |

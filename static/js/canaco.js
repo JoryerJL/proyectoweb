@@ -121,4 +121,53 @@
     slides[0].classList.remove("is-entering");
     start();
   }
+
+  // Infinite scroll: the server answers fetch requests with bare <article> rows and
+  // reports the next page in the X-Next-Url header (empty/absent = last page).
+  const list = document.querySelector("[data-infinite-scroll]");
+  if (list) {
+    const sentinel = document.querySelector("[data-infinite-sentinel]");
+    const more = document.querySelector("[data-infinite-more]");
+    let nextUrl = list.dataset.nextUrl;
+    let loading = false;
+
+    const finish = () => {
+      nextUrl = "";
+      observer?.disconnect();
+      sentinel?.remove();
+      more?.parentElement.remove();
+    };
+    const load = async () => {
+      if (loading || !nextUrl) return;
+      loading = true;
+      list.setAttribute("aria-busy", "true");
+      try {
+        const response = await fetch(nextUrl, { headers: { "X-Requested-With": "fetch" } });
+        if (!response.ok) throw new Error(response.status);
+        if (response.status === 204) return finish();
+        list.insertAdjacentHTML("beforeend", await response.text());
+        nextUrl = response.headers.get("X-Next-Url") || "";
+        if (more) more.href = nextUrl || "#";
+        if (!nextUrl) finish();
+      } catch (error) {
+        // Keep the plain "Cargar más" link as the fallback.
+      } finally {
+        loading = false;
+        list.setAttribute("aria-busy", "false");
+        // Re-observe so a sentinel that is still on screen triggers the next load.
+        if (nextUrl && observer && sentinel.isConnected) { observer.unobserve(sentinel); observer.observe(sentinel); }
+      }
+    };
+
+    const observer = sentinel && "IntersectionObserver" in window
+      ? new IntersectionObserver((entries) => { if (entries[0].isIntersecting) load(); }, { rootMargin: "300px" })
+      : null;
+    observer?.observe(sentinel);
+    more?.addEventListener("click", (event) => { event.preventDefault(); load(); });
+  }
+
+  // Category <select>: navigate on change (replaces an inline onchange handler).
+  document.querySelector("[data-category-select]")?.addEventListener("change", (event) => {
+    if (event.target.value) window.location.href = event.target.value;
+  });
 })();

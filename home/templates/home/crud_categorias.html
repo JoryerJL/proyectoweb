@@ -10,12 +10,13 @@
 </div>
 
 {% include 'partials/messages.html' %}
+{% include 'partials/form_errors.html' %}
 
 <div class="table-card">
     <form method="POST" class="inline-form">
         {% csrf_token %}
         <label for="nueva-categoria" class="visually-hidden">Nombre de la nueva categoría</label>
-        <input type="text" id="nueva-categoria" name="nombre" class="form-control" placeholder="Nombre de la nueva categoría" required>
+        <input type="text" id="nueva-categoria" name="nombre" class="form-control" placeholder="Nombre de la nueva categoría" value="{{ form.nombre.value|default:'' }}" maxlength="60" required>
         <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar</button>
     </form>
     <div class="table-responsive">

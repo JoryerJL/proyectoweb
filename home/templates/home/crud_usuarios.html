@@ -48,7 +48,10 @@
                     <td>
                         <div class="row-actions">
                             <a href="{% url 'home:editar_usuario' user.id %}" class="btn btn-ghost">Editar</a>
-                            <a href="{% url 'home:bloquear_usuario' user.id %}" class="btn btn-ghost">{% if user.is_active %}Bloquear{% else %}Desbloquear{% endif %}</a>
+                            <form method="post" action="{% url 'home:bloquear_usuario' user.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost">{% if user.is_active %}Bloquear{% else %}Desbloquear{% endif %}</button>
+                            </form>
                             <form method="post" action="{% url 'home:eliminar_usuario' user.id %}" data-confirm="¿Eliminar la cuenta de {{ user.username }}? Esta acción no se puede deshacer.">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>

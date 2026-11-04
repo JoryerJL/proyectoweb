@@ -12,6 +12,7 @@
 
 <div class="form-card profile-edit-card">
     {% include 'partials/messages.html' %}
+    {% include 'partials/form_errors.html' %}
 
     <form method="POST" enctype="multipart/form-data" class="profile-edit-form">
         {% csrf_token %}
@@ -32,7 +33,7 @@
         <div class="field-grid">
             <div class="field profile-form-row">
                 <label for="username">Usuario</label>
-                <input type="text" id="username" name="username" value="{{ request.user.username }}" required>
+                <input type="text" id="username" name="username" value="{{ form.username.value|default:request.user.username }}" required>
             </div>
             <div class="field profile-form-row">
                 <label for="email">Correo</label>

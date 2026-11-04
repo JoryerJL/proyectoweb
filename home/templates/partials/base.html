@@ -1,10 +1,20 @@
-{% load static %}
+{% load static seo %}
 <!doctype html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{% block description %}Noticias, eventos e historias del comercio local de Canaco.{% endblock %}">
+    <link rel="canonical" href="{% block canonical %}{% absolute_url request.path %}{% endblock %}">
+
+    <meta property="og:site_name" content="Canaco">
+    <meta property="og:locale" content="es_MX">
+    <meta property="og:title" content="{% block og_title %}Canaco{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Noticias, eventos e historias del comercio local de Canaco.{% endblock %}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{% absolute_url request.path %}{% endblock %}">
+    {% block og_image %}{% endblock %}
+    <meta name="twitter:card" content="{% block twitter_card %}summary{% endblock %}">
     <meta name="theme-color" content="#f5f7fb">
     <link rel="shortcut icon" href="{% static 'favicon.png' %}">
 

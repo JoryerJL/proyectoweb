@@ -1,0 +1,7 @@
+{% load seo %}User-agent: *
+Allow: /
+Disallow: /panel/
+Disallow: /admin/
+Disallow: /perfil/
+
+Sitemap: {% url 'sitemap' as sitemap_path %}{% absolute_url sitemap_path %}

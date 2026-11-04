@@ -12,9 +12,12 @@ urlpatterns = [
     # Sitio público
     path("", views.index, name="index"),
     path("noticia/", views.noticia, name="noticia"),
-    path("noticia/<int:pk>/", views.noticia, name="noticia_detalle"),
+    # Legacy pk URLs: permanent redirect to the slug URL (listed first, slugs are never all digits).
+    path("noticia/<int:pk>/", views.noticia_por_pk, name="noticia_pk"),
+    path("noticia/<slug:slug>/", views.noticia, name="noticia_detalle"),
     path("categoria/", views.categoria, name="categoria"),
-    path("categoria/<int:pk>/", views.categoria, name="categoria_detalle"),
+    path("categoria/<int:pk>/", views.categoria_por_pk, name="categoria_pk"),
+    path("categoria/<slug:slug>/", views.categoria, name="categoria_detalle"),
     path("contactanos/", views.contactanos, name="contactanos"),
     path("login/", auth_views.LoginView.as_view(template_name="home/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="home:login"), name="logout"),

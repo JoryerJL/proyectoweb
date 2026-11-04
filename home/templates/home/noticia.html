@@ -1,7 +1,14 @@
 {% extends 'partials/base.html' %}
-{% load static %}
+{% load static seo %}
 {% block title %}{{ publicacion.titulo }}{% endblock %}
-{% block description %}{{ publicacion.resumen }}{% endblock %}
+{% block description %}{{ publicacion.resumen|striptags|truncatechars:160 }}{% endblock %}
+{% block canonical %}{% absolute_url publicacion.get_absolute_url %}{% endblock %}
+{% block og_title %}{{ publicacion.titulo }}{% endblock %}
+{% block og_description %}{{ publicacion.resumen|striptags|truncatechars:160 }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_url %}{% absolute_url publicacion.get_absolute_url %}{% endblock %}
+{% block og_image %}{% if publicacion.imagen_portada %}<meta property="og:image" content="{% absolute_url publicacion.imagen_portada.display_url %}">{% endif %}{% endblock %}
+{% block twitter_card %}{% if publicacion.imagen_portada %}summary_large_image{% else %}summary{% endif %}{% endblock %}
 {% block content %}
 <section class="section" style="padding-top: clamp(1.5rem, 4vw, 2.5rem);">
     <div class="container">
@@ -11,7 +18,7 @@
                     <a href="{% url 'home:index' %}">Inicio</a>
                     {% if publicacion.categoria %}
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                    <a href="{% url 'home:categoria_detalle' publicacion.categoria.id %}">{{ publicacion.categoria.nombre }}</a>
+                    <a href="{{ publicacion.categoria.get_absolute_url }}">{{ publicacion.categoria.nombre }}</a>
                     {% endif %}
                 </nav>
 
@@ -19,13 +26,13 @@
 
                 <header class="article-header">
                     {% if publicacion.categoria %}
-                    <a href="{% url 'home:categoria_detalle' publicacion.categoria.id %}" class="chip">{{ publicacion.categoria.nombre }}</a>
+                    <a href="{{ publicacion.categoria.get_absolute_url }}" class="chip">{{ publicacion.categoria.nombre }}</a>
                     {% else %}
                     <span class="chip">Sin categoría</span>
                     {% endif %}
                     <h1>{{ publicacion.titulo }}</h1>
                     <div class="post-meta">
-                        <span><span class="avatar avatar--mint" style="width:1.8rem;height:1.8rem;font-size:.8rem">{{ publicacion.autor.username|first }}</span>{{ publicacion.autor.first_name|default:publicacion.autor.username }}</span>
+                        {% if publicacion.autor %}<span><span class="avatar avatar--mint" style="width:1.8rem;height:1.8rem;font-size:.8rem">{{ publicacion.autor.username|first }}</span>{{ publicacion.autor.first_name|default:publicacion.autor.username }}</span>{% endif %}
                         <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ publicacion.createdat|date:"j \d\e F \d\e Y" }}</span>
                         <span><i class="bi bi-eye" aria-hidden="true"></i>{{ publicacion.visitas }} visitas</span>
                     </div>
@@ -85,7 +92,7 @@
                         {% csrf_token %}
                         <div class="field">
                             <label for="contenido">Deja tu comentario</label>
-                            <textarea name="contenido" id="contenido" rows="4" placeholder="¿Qué opinas de esta noticia?" required></textarea>
+                            <textarea name="contenido" id="contenido" rows="4" maxlength="2000" placeholder="¿Qué opinas de esta noticia?" required></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">Publicar comentario</button>
                         <p class="field-hint">Tu comentario aparecerá cuando lo apruebe un moderador.</p>
@@ -105,7 +112,7 @@
                     <ul class="mini-posts post-entry-sidebar">
                         {% for item in recientes %}
                         <li>
-                            <a href="{% url 'home:noticia_detalle' item.id %}">
+                            <a href="{{ item.get_absolute_url }}">
                                 {% if item.imagen_portada %}
                                 <img src="{{ item.imagen_portada.display_url }}" alt="" class="sidebar-post-image" loading="lazy">
                                 {% endif %}
@@ -123,8 +130,8 @@
                 <div class="sidebar-box">
                     <h3 class="heading">Categorías</h3>
                     <div class="chip-row categories">
-                        {% for cat in categorias %}
-                        <a class="chip" href="{% url 'home:categoria_detalle' cat.id %}">{{ cat.nombre }}</a>
+                        {% for cat in global_categorias %}
+                        <a class="chip" href="{{ cat.get_absolute_url }}">{{ cat.nombre }}</a>
                         {% endfor %}
                     </div>
                 </div>

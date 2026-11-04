@@ -42,8 +42,14 @@
                     </td>
                     <td>
                         <div class="row-actions">
-                            <a href="{% url 'home:aprobar_comentario' comentario.id %}" class="btn btn-ghost is-success">Aprobar</a>
-                            <a href="{% url 'home:bloquear_comentario' comentario.id %}" class="btn btn-ghost">Bloquear</a>
+                            <form method="post" action="{% url 'home:aprobar_comentario' comentario.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost is-success">Aprobar</button>
+                            </form>
+                            <form method="post" action="{% url 'home:bloquear_comentario' comentario.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost">Bloquear</button>
+                            </form>
                             <form method="post" action="{% url 'home:eliminar_comentario' comentario.id %}" data-confirm="¿Eliminar este comentario?">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>

@@ -1,25 +1,53 @@
+import logging
 import os
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import InvalidPage, Paginator
 from django.core.files.storage import default_storage
+from django.core.mail import send_mail
 from django.db import connection
-from django.db.models import F, Q
-from django.http import JsonResponse
+from django.db.models import F, Prefetch, Q
+from django.http import HttpResponse, JsonResponse
+from django.utils.cache import patch_vary_headers
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import urlencode
+from django.utils.text import get_valid_filename
+from django.views.decorators.http import require_POST
 
 from . import roles
+from .forms import (
+    IMAGE_EXTENSIONS,
+    CategoriaForm,
+    ComentarioForm,
+    ContactoForm,
+    PerfilForm,
+    PublicacionForm,
+    SignUpForm,
+    UsuarioCreateForm,
+    UsuarioEditForm,
+    validate_image_upload,
+)
 from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
 from .roles import perm_required
+from .sanitize import clean_html
+
+logger = logging.getLogger(__name__)
 
 
 def guardar_archivo(upload, user):
-    filename = default_storage.save(f"uploads/{upload.name}", upload)
+    # The extension comes from the real image format, never from the client file name.
+    extension = IMAGE_EXTENSIONS[validate_image_upload(upload)]
+    nombre = (get_valid_filename(Path(upload.name).stem) or 'imagen') + extension
+    filename = default_storage.save(f"uploads/{nombre}", upload)
     return Archivo.objects.create(
-        nombre=upload.name,
+        nombre=nombre,
         nombre_temporal=filename,
         ruta=filename,
         tipo=upload.content_type,
@@ -40,50 +68,70 @@ def index(request):
     })
 
 
-def noticia(request, pk=None):
-    if pk and request.user.has_perm('home.change_publicacion'):
+def noticia_por_pk(request, pk):
+    """Old ``/noticia/<pk>/`` links keep working: permanent redirect to the slug URL."""
+    qs = Publicacion.objects.all()
+    if not request.user.has_perm('home.change_publicacion'):
+        qs = qs.filter(estado=Publicacion.ESTADO_PUBLICADO)
+    return redirect(get_object_or_404(qs, pk=pk), permanent=True)
+
+
+def categoria_por_pk(request, pk):
+    return redirect(get_object_or_404(Categoria, pk=pk), permanent=True)
+
+
+def noticia(request, slug=None):
+    if slug and request.user.has_perm('home.change_publicacion'):
         qs = Publicacion.objects.all()
     else:
         qs = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO)
 
-    qs = qs.select_related('categoria', 'autor', 'imagen_portada')
-    publicacion = get_object_or_404(qs, pk=pk) if pk else qs.order_by('-createdat').first()
+    qs = qs.select_related('categoria', 'autor', 'imagen_portada').prefetch_related(
+        Prefetch('galeria', queryset=GaleriaPublicacion.objects.select_related('archivo').order_by('id')),
+    )
+    publicacion = get_object_or_404(qs, slug=slug) if slug else qs.order_by('-createdat').first()
     if not publicacion:
         messages.info(request, 'Todavía no hay noticias publicadas.')
         return redirect('home:index')
 
     Publicacion.objects.filter(pk=publicacion.pk).update(visitas=F('visitas') + 1)
-    publicacion.refresh_from_db()
+    publicacion.visitas += 1
 
     if request.method == 'POST':
         if not request.user.is_authenticated:
             messages.error(request, 'Debes iniciar sesión para comentar.')
             return redirect('home:login')
-        contenido = request.POST.get('contenido', '').strip()
-        if contenido:
-            Comentario.objects.create(publicacion=publicacion, user=request.user, contenido=contenido)
+        form = ComentarioForm(request.POST)
+        if form.is_valid():
+            Comentario.objects.create(
+                publicacion=publicacion, user=request.user, contenido=form.cleaned_data['contenido'],
+            )
             messages.success(request, 'Comentario enviado. Será visible cuando lo apruebe el administrador.')
-        return redirect('home:noticia_detalle', pk=publicacion.pk)
+        else:
+            for error in form.errors['contenido']:
+                messages.error(request, error)
+        return redirect(publicacion)
 
     recientes = Publicacion.objects.filter(
         estado=Publicacion.ESTADO_PUBLICADO,
-    ).exclude(pk=publicacion.pk).order_by('-createdat')[:4]
+    ).exclude(pk=publicacion.pk).select_related('imagen_portada').order_by('-createdat')[:4]
     comentarios = publicacion.comentarios.filter(
         estado=Comentario.ESTADO_APROBADO,
     ).select_related('user').order_by('-createdat')
-    categorias = Categoria.objects.all().order_by('nombre')
 
     return render(request, 'home/noticia.html', {
         'publicacion': publicacion,
         'recientes': recientes,
-        'comentarios': comentarios,
-        'categorias': categorias,
+        'comentarios': list(comentarios),
     })
 
 
-def categoria(request, pk=None):
-    categorias = Categoria.objects.all().order_by('nombre')
-    categoria_actual = get_object_or_404(Categoria, pk=pk) if pk else None
+def is_partial_request(request):
+    return request.headers.get('X-Requested-With') == 'fetch' or request.GET.get('partial') == '1'
+
+
+def categoria(request, slug=None):
+    categoria_actual = get_object_or_404(Categoria, slug=slug) if slug else None
     publicaciones = Publicacion.objects.filter(estado=Publicacion.ESTADO_PUBLICADO).select_related(
         'categoria', 'autor', 'imagen_portada',
     )
@@ -92,56 +140,74 @@ def categoria(request, pk=None):
     busqueda = request.GET.get('q', '').strip()
     if busqueda:
         publicaciones = publicaciones.filter(Q(titulo__icontains=busqueda) | Q(resumen__icontains=busqueda))
-    return render(request, 'home/categoria.html', {
-        'categorias': categorias,
+
+    paginator = Paginator(publicaciones.order_by('-createdat', '-pk'), settings.NEWS_PAGE_SIZE)
+    partial = is_partial_request(request)
+    if partial:
+        # Infinite scroll must never receive a clamped (repeated) page.
+        try:
+            page_obj = paginator.page(request.GET.get('page'))
+        except InvalidPage:
+            response = HttpResponse(status=204)
+            response['X-Has-Next'] = 'false'
+            patch_vary_headers(response, ['X-Requested-With'])
+            return response
+    else:
+        page_obj = paginator.get_page(request.GET.get('page'))
+
+    next_url = ''
+    if page_obj.has_next():
+        params = {'q': busqueda} if busqueda else {}
+        params['page'] = page_obj.next_page_number()
+        next_url = '?' + urlencode(params)
+
+    context = {
         'categoria_actual': categoria_actual,
         'busqueda': busqueda,
-        'publicaciones': publicaciones.order_by('-createdat'),
-    })
+        'page_obj': page_obj,
+        'publicaciones': page_obj.object_list,
+        'next_url': next_url,
+    }
+    if partial:
+        # Next-page URL travels in the X-Next-Url header, not in the markup.
+        response = render(request, 'home/partials/post_rows.html', context)
+        response['X-Has-Next'] = 'true' if next_url else 'false'
+        if next_url:
+            response['X-Next-Url'] = next_url
+        patch_vary_headers(response, ['X-Requested-With'])
+        return response
+    response = render(request, 'home/categoria.html', context)
+    patch_vary_headers(response, ['X-Requested-With'])
+    return response
 
 
 def contactanos(request):
-    if request.method == 'POST':
+    form = ContactoForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        mensaje = form.save()
+        if settings.CONTACT_EMAIL:
+            try:
+                send_mail(
+                    subject=f'[Contacto] {mensaje.asunto}',
+                    message=f'De: {mensaje.nombre} <{mensaje.email}>\n\n{mensaje.mensaje}',
+                    from_email=None,
+                    recipient_list=[settings.CONTACT_EMAIL],
+                    fail_silently=False,
+                )
+            except Exception:
+                logger.warning('Could not send contact email for message %s', mensaje.pk, exc_info=True)
         messages.success(request, '¡Gracias por escribirnos! Te responderemos pronto.')
         return redirect('home:contactanos')
-    return render(request, 'home/contactanos.html')
+    return render(request, 'home/contactanos.html', {'form': form})
 
 
 def sign_up(request):
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        apellido_paterno = request.POST.get('apellido_paterno', '').strip()
-        apellido_materno = request.POST.get('apellido_materno', '').strip()
-        password1 = request.POST.get('password1', '')
-        password2 = request.POST.get('password2', '')
-
-        if password1 != password2:
-            messages.error(request, 'Las contraseñas no coinciden.')
-            return redirect('home:sign_up')
-
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'El nombre de usuario ya está en uso.')
-            return redirect('home:sign_up')
-
-        if User.objects.filter(email=email).exists():
-            messages.error(request, 'El correo electrónico ya está registrado.')
-            return redirect('home:sign_up')
-
-        user = User.objects.create_user(username=username, email=email, password=password1)
-        user.first_name = first_name
-        user.last_name = ' '.join(filter(None, [apellido_paterno, apellido_materno]))
-        user.save()
-        roles.assign_role(user, roles.COLABORADOR)
-        perfil, _ = Perfil.objects.get_or_create(user=user)
-        perfil.apellido_paterno = apellido_paterno
-        perfil.apellido_materno = apellido_materno
-        perfil.save()
+    form = SignUpForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
         messages.success(request, 'Tu cuenta ha sido creada con éxito. Ahora puedes iniciar sesión.')
         return redirect('home:login')
-
-    return render(request, 'home/sign_up.html')
+    return render(request, 'home/sign_up.html', {'form': form})
 
 
 # Panel: perfil
@@ -158,71 +224,46 @@ def crud_perfil(request):
     perfil, _ = Perfil.objects.get_or_create(user=user)
 
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        apellido_paterno = request.POST.get('apellido_paterno', '').strip()
-        apellido_materno = request.POST.get('apellido_materno', '').strip()
-        foto = request.FILES.get('foto')
+        form = PerfilForm(request.POST, request.FILES, user=user)
+        if form.is_valid():
+            data = form.cleaned_data
+            user.username = data['username']
+            if data['email']:
+                user.email = data['email']
+            user.first_name = data['first_name']
+            user.last_name = ' '.join(filter(None, [data['apellido_paterno'], data['apellido_materno']]))
+            user.save()
 
-        if not username:
-            messages.error(request, 'El usuario es obligatorio.')
-            return redirect('home:crud_perfil')
-        if User.objects.filter(username=username).exclude(pk=user.pk).exists():
-            messages.error(request, 'Ese nombre de usuario ya está en uso.')
-            return redirect('home:crud_perfil')
+            perfil.apellido_paterno = data['apellido_paterno']
+            perfil.apellido_materno = data['apellido_materno']
 
-        user.username = username
-        if email:
-            user.email = email
-        user.first_name = first_name
-        user.last_name = ' '.join(filter(None, [apellido_paterno, apellido_materno]))
-        user.save()
+            foto = data['foto']
+            if foto:
+                if perfil.foto_perfil:
+                    archivo_anterior = perfil.foto_perfil
+                    if archivo_anterior.ruta and hasattr(archivo_anterior.ruta, 'path') and os.path.exists(archivo_anterior.ruta.path):
+                        os.remove(archivo_anterior.ruta.path)
+                    archivo_anterior.delete()
+                perfil.foto_perfil = guardar_archivo(foto, user)
 
-        perfil.apellido_paterno = apellido_paterno
-        perfil.apellido_materno = apellido_materno
+            perfil.save()
 
-        if foto:
-            if perfil.foto_perfil:
-                archivo_anterior = perfil.foto_perfil
-                if archivo_anterior.ruta and hasattr(archivo_anterior.ruta, 'path') and os.path.exists(archivo_anterior.ruta.path):
-                    os.remove(archivo_anterior.ruta.path)
-                archivo_anterior.delete()
-            perfil.foto_perfil = guardar_archivo(foto, user)
-
-        perfil.save()
-
-        messages.success(request, 'Perfil actualizado correctamente.')
-        return redirect('home:perfil')
+            messages.success(request, 'Perfil actualizado correctamente.')
+            return redirect('home:perfil')
+        return render(request, 'home/crud_perfil.html', {'perfil_usuario': perfil, 'form': form})
 
     return render(request, 'home/crud_perfil.html', {'perfil_usuario': perfil})
 
 
 @login_required
 def crud_cambiar_contrasena(request):
-    if request.method == 'POST':
-        actual = request.POST.get('actual')
-        nueva = request.POST.get('nueva')
-        confirmar = request.POST.get('confirmar')
-
-        user = request.user
-
-        if not user.check_password(actual):
-            messages.error(request, 'La contraseña actual es incorrecta.')
-            return redirect('home:crud_cambiar_contrasena')
-
-        if nueva != confirmar:
-            messages.error(request, 'Las nuevas contraseñas no coinciden.')
-            return redirect('home:crud_cambiar_contrasena')
-
-        user.set_password(nueva)
-        user.save()
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
         update_session_auth_hash(request, user)
-
         messages.success(request, 'Contraseña actualizada correctamente.')
         return redirect('home:crud_cambiar_contrasena')
-
-    return render(request, 'home/crud_cambiar_contrasena.html')
+    return render(request, 'home/crud_cambiar_contrasena.html', {'form': form})
 
 
 # Panel: noticias
@@ -233,53 +274,58 @@ def crud_noticias(request):
     return render(request, 'home/crud_noticias.html', {'publicaciones': publicaciones})
 
 
+def _adjuntar_imagenes(publicacion, form, user):
+    portada = form.cleaned_data.get('imagen_portada')
+    if portada:
+        publicacion.imagen_portada = guardar_archivo(portada, user)
+        publicacion.save()
+    for imagen in form.cleaned_data.get('galeria', []):
+        GaleriaPublicacion.objects.create(publicacion=publicacion, archivo=guardar_archivo(imagen, user))
+
+
+def _render_publicacion_form(request, form, publicacion=None):
+    contenido = form['contenido'].value() or ''
+    return render(request, 'home/crear_publicacion.html', {
+        'form': form,
+        'categorias': form.fields['categoria'].queryset,
+        'publicacion': publicacion,
+        # Re-sanitized because the editor renders it with |safe.
+        'contenido_inicial': clean_html(contenido),
+    })
+
+
 @perm_required('home.add_publicacion')
 def crear_publicacion(request):
-    categorias = Categoria.objects.all().order_by('nombre')
     if request.method == 'POST':
-        publicacion = Publicacion.objects.create(
-            titulo=request.POST.get('titulo', '').strip(),
-            resumen=request.POST.get('resumen', '').strip(),
-            contenido=request.POST.get('contenido', '').strip(),
-            categoria_id=request.POST.get('categoria') or None,
-            estado=request.POST.get('estado') or Publicacion.ESTADO_BORRADOR,
-            autor=request.user,
-        )
-        portada = request.FILES.get('imagen_portada')
-        if portada:
-            publicacion.imagen_portada = guardar_archivo(portada, request.user)
+        form = PublicacionForm(request.POST, request.FILES)
+        if form.is_valid():
+            publicacion = form.save(commit=False)
+            publicacion.autor = request.user
             publicacion.save()
-        for imagen in request.FILES.getlist('galeria'):
-            GaleriaPublicacion.objects.create(publicacion=publicacion, archivo=guardar_archivo(imagen, request.user))
-        messages.success(request, 'Publicación creada correctamente.')
-        return redirect('home:crud_noticias')
-    return render(request, 'home/crear_publicacion.html', {'categorias': categorias})
+            _adjuntar_imagenes(publicacion, form, request.user)
+            messages.success(request, 'Publicación creada correctamente.')
+            return redirect('home:crud_noticias')
+    else:
+        form = PublicacionForm()
+    return _render_publicacion_form(request, form)
 
 
 @perm_required('home.change_publicacion')
 def editar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
-    categorias = Categoria.objects.all().order_by('nombre')
     if request.method == 'POST':
-        publicacion.titulo = request.POST.get('titulo', '').strip()
-        publicacion.resumen = request.POST.get('resumen', '').strip()
-        publicacion.contenido = request.POST.get('contenido', '').strip()
-        publicacion.categoria_id = request.POST.get('categoria') or None
-        publicacion.estado = request.POST.get('estado') or Publicacion.ESTADO_BORRADOR
-        portada = request.FILES.get('imagen_portada')
-        if portada:
-            publicacion.imagen_portada = guardar_archivo(portada, request.user)
-        publicacion.save()
-        for imagen in request.FILES.getlist('galeria'):
-            GaleriaPublicacion.objects.create(publicacion=publicacion, archivo=guardar_archivo(imagen, request.user))
-        messages.success(request, 'Publicación actualizada correctamente.')
-        return redirect('home:crud_noticias')
-    return render(request, 'home/crear_publicacion.html', {
-        'categorias': categorias,
-        'publicacion': publicacion,
-    })
+        form = PublicacionForm(request.POST, request.FILES, instance=publicacion)
+        if form.is_valid():
+            publicacion = form.save()
+            _adjuntar_imagenes(publicacion, form, request.user)
+            messages.success(request, 'Publicación actualizada correctamente.')
+            return redirect('home:crud_noticias')
+    else:
+        form = PublicacionForm(instance=publicacion)
+    return _render_publicacion_form(request, form, publicacion)
 
 
+@require_POST
 @perm_required('home.change_publicacion')
 def publicar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
@@ -288,12 +334,12 @@ def publicar_publicacion(request, pk):
     return redirect('home:crud_noticias')
 
 
+@require_POST
 @perm_required('home.delete_publicacion')
 def eliminar_publicacion(request, pk):
     publicacion = get_object_or_404(Publicacion, pk=pk)
-    if request.method == 'POST':
-        publicacion.delete()
-        messages.success(request, 'Publicación eliminada correctamente.')
+    publicacion.delete()
+    messages.success(request, 'Publicación eliminada correctamente.')
     return redirect('home:crud_noticias')
 
 
@@ -305,6 +351,7 @@ def crud_comentarios(request):
     return render(request, 'home/crud_comentarios.html', {'comentarios': comentarios})
 
 
+@require_POST
 @perm_required('home.change_comentario')
 def aprobar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
@@ -313,6 +360,7 @@ def aprobar_comentario(request, pk):
     return redirect('home:crud_comentarios')
 
 
+@require_POST
 @perm_required('home.change_comentario')
 def bloquear_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
@@ -321,11 +369,11 @@ def bloquear_comentario(request, pk):
     return redirect('home:crud_comentarios')
 
 
+@require_POST
 @perm_required('home.delete_comentario')
 def eliminar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
-    if request.method == 'POST':
-        comentario.delete()
+    comentario.delete()
     return redirect('home:crud_comentarios')
 
 
@@ -333,37 +381,41 @@ def eliminar_comentario(request, pk):
 
 @perm_required('home.change_categoria')
 def crud_categorias(request):
+    form = CategoriaForm()
     if request.method == 'POST':
         if not request.user.has_perm('home.add_categoria'):
             raise PermissionDenied
-        nombre = request.POST.get('nombre')
-        if nombre:
-            Categoria.objects.create(nombre=nombre, fk_user=request.user)
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            categoria = form.save(commit=False)
+            categoria.fk_user = request.user
+            categoria.save()
             messages.success(request, 'Categoría agregada correctamente.')
             return redirect('home:crud_categorias')
     categorias = Categoria.objects.all().order_by('-createdat')
-    return render(request, 'home/crud_categorias.html', {'categorias': categorias})
+    return render(request, 'home/crud_categorias.html', {'categorias': categorias, 'form': form})
 
 
 @perm_required('home.change_categoria')
 def editar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
     if request.method == 'POST':
-        nombre = request.POST.get('nombre', '').strip()
-        if nombre:
-            categoria.nombre = nombre
-            categoria.save()
+        form = CategoriaForm(request.POST, instance=categoria)
+        if form.is_valid():
+            form.save()
             messages.success(request, 'Categoría actualizada correctamente.')
-        return redirect('home:crud_categorias')
-    return render(request, 'home/editar_categoria.html', {'categoria': categoria})
+            return redirect('home:crud_categorias')
+    else:
+        form = CategoriaForm(instance=categoria)
+    return render(request, 'home/editar_categoria.html', {'categoria': categoria, 'form': form})
 
 
+@require_POST
 @perm_required('home.delete_categoria')
 def eliminar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
-    if request.method == 'POST':
-        categoria.delete()
-        messages.success(request, 'Categoría eliminada correctamente.')
+    categoria.delete()
+    messages.success(request, 'Categoría eliminada correctamente.')
     return redirect('home:crud_categorias')
 
 
@@ -371,9 +423,15 @@ def eliminar_categoria(request, pk):
 
 @perm_required('auth.view_user')
 def crud_usuarios(request):
-    for usuario in User.objects.all():
-        Perfil.objects.get_or_create(user=usuario)
-    usuarios = list(User.objects.select_related('perfil').prefetch_related('groups').order_by('date_joined'))
+    def load():
+        return list(User.objects.select_related('perfil').prefetch_related('groups').order_by('date_joined'))
+
+    usuarios = load()
+    # select_related caches a missing profile, so this check costs no extra queries.
+    sin_perfil = [u for u in usuarios if not hasattr(u, 'perfil')]
+    if sin_perfil:
+        Perfil.objects.bulk_create([Perfil(user=u) for u in sin_perfil])
+        usuarios = load()
     for usuario in usuarios:
         usuario.rol = roles.get_user_role(usuario)
     return render(request, 'home/crud_usuarios.html', {'usuarios': usuarios})
@@ -381,74 +439,45 @@ def crud_usuarios(request):
 
 @perm_required('auth.add_user')
 def crear_usuario(request):
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        apellido_paterno = request.POST.get('apellido_paterno', '').strip()
-        apellido_materno = request.POST.get('apellido_materno', '').strip()
-        password1 = request.POST.get('password1', '')
-        password2 = request.POST.get('password2', '')
-
-        if not username or not password1:
-            messages.error(request, 'Usuario y contraseña son obligatorios.')
-            return redirect('home:crear_usuario')
-        if password1 != password2:
-            messages.error(request, 'Las contraseñas no coinciden.')
-            return redirect('home:crear_usuario')
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'El usuario ya existe.')
-            return redirect('home:crear_usuario')
-
-        user = User.objects.create_user(username=username, email=email, password=password1)
-        user.first_name = first_name
-        user.last_name = ' '.join(filter(None, [apellido_paterno, apellido_materno]))
-        user.save()
-        rol = request.POST.get('rol')
-        roles.assign_role(user, rol if roles.get_role(rol) else roles.DEFAULT_ROLE)
-        perfil, _ = Perfil.objects.get_or_create(user=user)
-        perfil.apellido_paterno = apellido_paterno
-        perfil.apellido_materno = apellido_materno
-        perfil.save()
+    form = UsuarioCreateForm(request.POST or None, initial={'rol': roles.DEFAULT_ROLE})
+    if request.method == 'POST' and form.is_valid():
+        form.save()
         messages.success(request, 'Usuario creado correctamente.')
         return redirect('home:crud_usuarios')
-
-    return render(request, 'home/crear_usuario.html', {'roles': roles.ROLES, 'rol_actual': roles.DEFAULT_ROLE})
+    return render(request, 'home/crear_usuario.html', {
+        'form': form,
+        'roles': roles.ROLES,
+        'rol_actual': form['rol'].value() or roles.DEFAULT_ROLE,
+    })
 
 
 @perm_required('auth.change_user')
 def editar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     perfil, _ = Perfil.objects.get_or_create(user=usuario)
-    if request.method == 'POST':
-        usuario.username = request.POST.get('username', usuario.username).strip()
-        usuario.email = request.POST.get('email', usuario.email).strip()
-        usuario.first_name = request.POST.get('first_name', usuario.first_name).strip()
-        perfil.apellido_paterno = request.POST.get('apellido_paterno', perfil.apellido_paterno).strip()
-        perfil.apellido_materno = request.POST.get('apellido_materno', perfil.apellido_materno).strip()
-        usuario.last_name = ' '.join(filter(None, [perfil.apellido_paterno, perfil.apellido_materno]))
-        rol = request.POST.get('rol')
-        password1 = request.POST.get('password1', '')
-        password2 = request.POST.get('password2', '')
-        if password1 or password2:
-            if password1 != password2:
-                messages.error(request, 'Las contraseñas no coinciden.')
-                return redirect('home:editar_usuario', pk=usuario.pk)
-            usuario.set_password(password1)
-        usuario.save()
-        if roles.get_role(rol):
-            roles.assign_role(usuario, rol)
-        perfil.save()
+    rol_actual = roles.get_user_role(usuario).value
+    initial = {
+        'username': usuario.username,
+        'email': usuario.email,
+        'first_name': usuario.first_name,
+        'apellido_paterno': perfil.apellido_paterno,
+        'apellido_materno': perfil.apellido_materno,
+        'rol': rol_actual,
+    }
+    form = UsuarioEditForm(request.POST or None, instance=usuario, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
         messages.success(request, 'Usuario actualizado correctamente.')
         return redirect('home:crud_usuarios')
     return render(request, 'home/crear_usuario.html', {
+        'form': form,
         'usuario_editado': usuario,
-        'perfil_editado': perfil,
         'roles': roles.ROLES,
-        'rol_actual': roles.get_user_role(usuario).value,
+        'rol_actual': form['rol'].value() or rol_actual,
     })
 
 
+@require_POST
 @perm_required('auth.change_user')
 def bloquear_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
@@ -458,10 +487,11 @@ def bloquear_usuario(request, pk):
     return redirect('home:crud_usuarios')
 
 
+@require_POST
 @perm_required('auth.delete_user')
 def eliminar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
-    if request.method == 'POST' and usuario != request.user:
+    if usuario != request.user:
         usuario.delete()
     return redirect('home:crud_usuarios')
 

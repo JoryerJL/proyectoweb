@@ -12,30 +12,37 @@
         <div class="contact-layout">
             <div class="card">
                 {% include 'partials/messages.html' %}
+                {% include 'partials/form_errors.html' %}
                 <form method="POST">
                     {% csrf_token %}
+                    <div class="hp-field" aria-hidden="true">
+                        <label for="website">Deja este campo vacío</label>
+                        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+                    </div>
                     <div class="field-grid">
                         <div class="field">
                             <label for="nombre">Tu nombre</label>
-                            <input type="text" id="nombre" name="nombre" autocomplete="name" required>
+                            <input type="text" id="nombre" name="nombre" value="{{ form.nombre.value|default:'' }}" maxlength="100" autocomplete="name" required>
                         </div>
                         <div class="field">
-                            <label for="correo">Correo electrónico</label>
-                            <input type="email" id="correo" name="correo" autocomplete="email" required>
+                            <label for="email">Correo electrónico</label>
+                            <input type="email" id="email" name="email" value="{{ form.email.value|default:'' }}" autocomplete="email" required>
                         </div>
                     </div>
                     <div class="field">
                         <label for="asunto">¿Sobre qué nos escribes?</label>
                         <select id="asunto" name="asunto">
-                            <option>Quiero compartir una noticia</option>
-                            <option>Quiero sumar mi negocio</option>
-                            <option>Tengo una duda</option>
-                            <option>Otro tema</option>
+                            {% with asunto=form.asunto.value %}
+                            <option{% if asunto == 'Quiero compartir una noticia' %} selected{% endif %}>Quiero compartir una noticia</option>
+                            <option{% if asunto == 'Quiero sumar mi negocio' %} selected{% endif %}>Quiero sumar mi negocio</option>
+                            <option{% if asunto == 'Tengo una duda' %} selected{% endif %}>Tengo una duda</option>
+                            <option{% if asunto == 'Otro tema' %} selected{% endif %}>Otro tema</option>
+                            {% endwith %}
                         </select>
                     </div>
                     <div class="field">
                         <label for="mensaje">Mensaje</label>
-                        <textarea id="mensaje" name="mensaje" rows="5" placeholder="Cuéntanos con calma…" required></textarea>
+                        <textarea id="mensaje" name="mensaje" rows="5" placeholder="Cuéntanos con calma…" maxlength="5000" required>{{ form.mensaje.value|default:'' }}</textarea>
                     </div>
                     <button type="submit" class="btn btn-primary btn-lg">Enviar mensaje <i class="bi bi-send" aria-hidden="true"></i></button>
                 </form>

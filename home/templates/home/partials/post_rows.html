@@ -1,0 +1,19 @@
+{% load static %}{% for item in publicaciones %}
+<article class="post-row">
+    {% if item.imagen_portada %}
+    <img src="{{ item.imagen_portada.display_url }}" alt="" class="category-post-image" loading="lazy">
+    {% else %}
+    <img src="{% static 'images/hero_1.jpg' %}" alt="" class="category-post-image" loading="lazy">
+    {% endif %}
+    <div>
+        <div class="post-meta">
+            {% if not categoria_actual %}<span><i class="bi bi-tag" aria-hidden="true"></i>{{ item.categoria.nombre|default:"Sin categoría" }}</span>{% endif %}
+            <span><i class="bi bi-calendar3" aria-hidden="true"></i>{{ item.createdat|date:"j M Y" }}</span>
+            <span><i class="bi bi-eye" aria-hidden="true"></i>{{ item.visitas }} visitas</span>
+        </div>
+        <h2><a href="{{ item.get_absolute_url }}">{{ item.titulo }}</a></h2>
+        <p>{{ item.resumen }}</p>
+        <span class="link-arrow">Leer más <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+    </div>
+</article>
+{% endfor %}
