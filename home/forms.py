@@ -1,10 +1,11 @@
 """Validated input for every view that used to read ``request.POST`` raw."""
 
 from django import forms
-from django.contrib.auth.forms import BaseUserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, BaseUserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from PIL import Image
 
 from . import roles
@@ -141,12 +142,18 @@ class SignUpForm(BaseUserCreationForm):
         materno = self.cleaned_data['apellido_materno']
         user.last_name = ' '.join(filter(None, [paterno, materno]))
         if commit:
-            user.save()
-            roles.assign_role(user, roles.COLABORADOR)
-            perfil, _ = Perfil.objects.get_or_create(user=user)
-            perfil.apellido_paterno = paterno
-            perfil.apellido_materno = materno
-            perfil.save()
+            # All-or-nothing: no half-created account (user without role or unverified flag).
+            with transaction.atomic():
+                user.save()
+                roles.assign_role(user, roles.COLABORADOR)
+                perfil, _ = Perfil.objects.get_or_create(user=user)
+                perfil.apellido_paterno = paterno
+                perfil.apellido_materno = materno
+                # Self-registered accounts must confirm their email before logging in.
+                # This is the only place that sets email_verificado to False.
+                perfil.email_verificado = False
+                perfil.email_verificado_en = None
+                perfil.save()
         return user
 
 
@@ -293,3 +300,21 @@ class UsuarioEditForm(_UsuarioPanelForm):
             roles.assign_role(user, self.cleaned_data['rol'])
         self._save_perfil(user)
         return user
+
+
+class VerifiedAuthenticationForm(AuthenticationForm):
+    """Login form that also requires a confirmed email (blocked users keep Django's message)."""
+
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        perfil = getattr(user, 'perfil', None)
+        if perfil is not None and not perfil.email_verificado:
+            raise ValidationError(
+                'Confirma tu correo electrónico antes de iniciar sesión. '
+                'Si no recibiste el enlace, solicita uno nuevo en la página de reenvío de verificación.',
+                code='email_not_verified',
+            )
+
+
+class ResendVerificationForm(forms.Form):
+    email = forms.EmailField(max_length=254)

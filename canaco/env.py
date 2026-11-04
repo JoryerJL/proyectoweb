@@ -32,3 +32,9 @@ def validate_production(debug, secret_key):
         raise ImproperlyConfigured(
             'DJANGO_SECRET_KEY must be set to a unique secret value when DJANGO_DEBUG is off.'
         )
+
+
+def validate_email_tls(use_tls, use_ssl):
+    """STARTTLS (587) and implicit TLS (465) are mutually exclusive."""
+    if use_tls and use_ssl:
+        raise ImproperlyConfigured('DJANGO_EMAIL_USE_TLS and DJANGO_EMAIL_USE_SSL cannot both be enabled.')

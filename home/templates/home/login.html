@@ -27,7 +27,9 @@
             {% if form.errors %}
             <div class="alert alert-danger" role="alert">
                 <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
-                <div class="alert-body">Usuario o contraseña incorrectos. Revisa los datos e intenta otra vez.</div>
+                <div class="alert-body">
+                    {% for error in form.non_field_errors %}{{ error }}{% empty %}Usuario o contraseña incorrectos. Revisa los datos e intenta otra vez.{% endfor %}
+                </div>
                 <button type="button" class="alert-close" data-dismiss="alert" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
             </div>
             {% endif %}
@@ -50,6 +52,7 @@
                     <button type="submit" class="btn btn-primary btn-lg btn-block">Entrar</button>
                 </div>
             </form>
+            <p class="account-switch">¿No recibiste el correo de verificación? <a href="{% url 'home:reenviar_verificacion' %}">Reenviar enlace</a></p>
             <p class="account-switch">¿Aún no tienes cuenta? <a href="{% url 'home:sign_up' %}">Crea una aquí</a></p>
         </div>
     </div>

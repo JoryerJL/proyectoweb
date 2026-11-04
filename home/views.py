@@ -15,13 +15,17 @@ from django.core.mail import send_mail
 from django.db import connection
 from django.db.models import F, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 from django.utils.cache import patch_vary_headers
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import urlencode
 from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_POST
 
 from . import roles
+from .emails import claim_send_slot, send_verification_email_async
 from .forms import (
     IMAGE_EXTENSIONS,
     CategoriaForm,
@@ -29,6 +33,7 @@ from .forms import (
     ContactoForm,
     PerfilForm,
     PublicacionForm,
+    ResendVerificationForm,
     SignUpForm,
     UsuarioCreateForm,
     UsuarioEditForm,
@@ -37,6 +42,7 @@ from .forms import (
 from .models import Archivo, Categoria, Comentario, GaleriaPublicacion, Perfil, Publicacion
 from .roles import perm_required
 from .sanitize import clean_html
+from .tokens import email_verification_token, issued_while_unverified_token
 
 logger = logging.getLogger(__name__)
 
@@ -204,10 +210,60 @@ def contactanos(request):
 def sign_up(request):
     form = SignUpForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Tu cuenta ha sido creada con éxito. Ahora puedes iniciar sesión.')
-        return redirect('home:login')
+        user = form.save()
+        # Failures happen off-thread and are logged; the sent page offers the resend option.
+        if claim_send_slot(user):
+            send_verification_email_async(request, user)
+        return redirect('home:verificacion_enviada')
     return render(request, 'home/sign_up.html', {'form': form})
+
+
+def verificacion_enviada(request):
+    return render(request, 'home/verificacion_enviada.html', {'form': ResendVerificationForm()})
+
+
+def verificar_email(request, uidb64, token):
+    try:
+        user = User.objects.select_related('perfil').get(pk=force_str(urlsafe_base64_decode(uidb64)))
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+    perfil = getattr(user, 'perfil', None)
+    if perfil is None:
+        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+    if perfil.email_verificado:
+        # A genuine link used twice is not an error; tampered or foreign tokens still get a 400.
+        if issued_while_unverified_token.check_token(user, token):
+            messages.info(request, 'Tu correo ya estaba verificado. Inicia sesión.')
+            return redirect('home:login')
+        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+    if not email_verification_token.check_token(user, token):
+        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+    perfil.email_verificado = True
+    perfil.email_verificado_en = timezone.now()
+    perfil.save(update_fields=['email_verificado', 'email_verificado_en'])
+    messages.success(request, 'Tu correo fue confirmado. Ya puedes iniciar sesión.')
+    return redirect('home:login')
+
+
+def reenviar_verificacion(request):
+    form = ResendVerificationForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        # An unverified account wins over a verified duplicate (False sorts before True).
+        user = (
+            User.objects.select_related('perfil')
+            .filter(email__iexact=form.cleaned_data['email'], is_active=True)
+            .order_by('perfil__email_verificado')
+            .first()
+        )
+        perfil = getattr(user, 'perfil', None)
+        if perfil is not None and not perfil.email_verificado and claim_send_slot(user):
+            send_verification_email_async(request, user)
+        # Same response in every case so the form cannot be used to enumerate accounts.
+        return render(request, 'home/reenviar_verificacion.html', {
+            'form': ResendVerificationForm(),
+            'sent': True,
+        })
+    return render(request, 'home/reenviar_verificacion.html', {'form': form})
 
 
 # Panel: perfil
@@ -430,7 +486,10 @@ def crud_usuarios(request):
     # select_related caches a missing profile, so this check costs no extra queries.
     sin_perfil = [u for u in usuarios if not hasattr(u, 'perfil')]
     if sin_perfil:
-        Perfil.objects.bulk_create([Perfil(user=u) for u in sin_perfil])
+        now = timezone.now()
+        Perfil.objects.bulk_create([
+            Perfil(user=u, email_verificado=True, email_verificado_en=now) for u in sin_perfil
+        ])
         usuarios = load()
     for usuario in usuarios:
         usuario.rol = roles.get_user_role(usuario)

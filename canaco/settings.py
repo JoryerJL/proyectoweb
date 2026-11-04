@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-from .env import INSECURE_SECRET_KEY, env_bool, env_list, validate_production
+from .env import INSECURE_SECRET_KEY, env_bool, env_list, validate_email_tls, validate_production
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +38,7 @@ DEBUG = env_bool('DJANGO_DEBUG', False)
 # Production must not start with DEBUG off and the public default secret key.
 if not TESTING:
     validate_production(DEBUG, SECRET_KEY)
+    validate_email_tls(env_bool('DJANGO_EMAIL_USE_TLS', False), env_bool('DJANGO_EMAIL_USE_SSL', False))
 
 # localhost entries keep container healthchecks and smoke tests working.
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS') + (['localhost', '127.0.0.1'] if not DEBUG else [])
@@ -219,6 +220,13 @@ EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', '25'))
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = env_bool('DJANGO_EMAIL_USE_TLS', False)
+# Needed for providers with implicit TLS on 465; production uses SES on 587 with STARTTLS.
+# Django rejects USE_TLS and USE_SSL both true.
+EMAIL_USE_SSL = env_bool('DJANGO_EMAIL_USE_SSL', False)
+# Seconds before an SMTP connection attempt gives up.
+EMAIL_TIMEOUT = int(os.environ.get('DJANGO_EMAIL_TIMEOUT', '10'))
+# Send verification emails from a background thread so SMTP latency never blocks a request.
+EMAIL_SEND_ASYNC = not TESTING
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'Canaco <no-reply@localhost>')
 # Inbox that receives contact-form messages. Empty disables the notification email.
 CONTACT_EMAIL = os.environ.get('DJANGO_CONTACT_EMAIL', '')

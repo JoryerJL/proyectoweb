@@ -1,0 +1,10 @@
+<form method="POST" action="{% url 'home:reenviar_verificacion' %}" class="profile-edit-form">
+    {% csrf_token %}
+    <div class="field profile-form-row">
+        <label for="email">Correo</label>
+        <input type="email" id="email" name="email" autocomplete="email" required>
+    </div>
+    <div class="profile-form-actions">
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Reenviar enlace</button>
+    </div>
+</form>
