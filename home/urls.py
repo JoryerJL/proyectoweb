@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views
+from . import forms, views
 
 app_name = "home"
 
@@ -19,9 +19,19 @@ urlpatterns = [
     path("categoria/<int:pk>/", views.categoria_por_pk, name="categoria_pk"),
     path("categoria/<slug:slug>/", views.categoria, name="categoria_detalle"),
     path("contactanos/", views.contactanos, name="contactanos"),
-    path("login/", auth_views.LoginView.as_view(template_name="home/login.html"), name="login"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(
+            template_name="home/login.html",
+            authentication_form=forms.VerifiedAuthenticationForm,
+        ),
+        name="login",
+    ),
     path("logout/", auth_views.LogoutView.as_view(next_page="home:login"), name="logout"),
     path("sign_up/", views.sign_up, name="sign_up"),
+    path("verificacion_enviada/", views.verificacion_enviada, name="verificacion_enviada"),
+    path("verificar_email/<uidb64>/<token>/", views.verificar_email, name="verificar_email"),
+    path("reenviar_verificacion/", views.reenviar_verificacion, name="reenviar_verificacion"),
 
     # Panel: perfil
     path("perfil/", views.perfil, name="perfil"),

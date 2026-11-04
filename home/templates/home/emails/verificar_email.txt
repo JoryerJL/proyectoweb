@@ -1,0 +1,10 @@
+{% autoescape off %}Hola {{ user.first_name|default:user.username }},
+
+Gracias por registrarte en {{ site_name }}. Para activar tu cuenta, confirma tu correo en el siguiente enlace:
+
+{{ verification_url }}
+
+El enlace es de un solo uso y caduca en unos días. Si no creaste esta cuenta, puedes ignorar este mensaje.
+
+El equipo de {{ site_name }}
+{% endautoescape %}

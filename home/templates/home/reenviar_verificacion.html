@@ -1,0 +1,17 @@
+{% extends 'partials/base.html' %}
+{% block title %}Reenviar verificación{% endblock %}
+
+{% block content %}
+<div class="account-page">
+    <div class="account-card account-card-sm">
+        <div class="account-form">
+            <h1>Reenviar verificación</h1>
+            {% if sent %}<div class="alert alert-success" role="status"><div class="alert-body">Si el correo existe y no está verificado, te enviamos un nuevo enlace.</div></div>{% else %}<p>Escribe el correo con el que te registraste.</p>{% endif %}
+            {% include 'partials/form_errors.html' %}
+            {% include 'partials/messages.html' %}
+            {% include 'home/partials/resend_form.html' %}
+            <p class="account-switch"><a href="{% url 'home:login' %}">Volver a iniciar sesión</a></p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

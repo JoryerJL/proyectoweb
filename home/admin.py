@@ -22,7 +22,8 @@ class ArchivoAdmin(admin.ModelAdmin):
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
-    list_display = ('user', 'apellido_paterno', 'apellido_materno')
+    list_display = ('user', 'apellido_paterno', 'apellido_materno', 'email_verificado')
+    list_filter = ('email_verificado',)
     search_fields = ('user__username', 'apellido_paterno', 'apellido_materno')
     raw_id_fields = ('user', 'foto_perfil')
 
