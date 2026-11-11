@@ -105,7 +105,7 @@ class SignUpFormTests(TestCase):
 
     def test_strong_password_creates_user_with_role_and_profile(self):
         response = self.client.post(reverse('home:sign_up'), self._payload(STRONG))
-        self.assertRedirects(response, reverse('home:login'))
+        self.assertRedirects(response, reverse('home:verificacion_enviada'))
         user = User.objects.get(username='nueva')
         self.assertEqual(roles.get_user_role(user).value, roles.COLABORADOR)
         self.assertEqual(user.last_name, 'Perez Lopez')

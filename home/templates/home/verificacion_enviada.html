@@ -1,0 +1,17 @@
+{% extends 'partials/base.html' %}
+{% block title %}Revisa tu correo{% endblock %}
+
+{% block content %}
+<div class="account-page">
+    <div class="account-card account-card-sm">
+        <div class="account-form">
+            <h1>Revisa tu correo</h1>
+            <p>Te enviamos un enlace para confirmar tu cuenta. Revisa tu bandeja de entrada (y la carpeta de spam).</p>
+            {% include 'partials/messages.html' %}
+            <p>¿No te llegó? Puedes pedir un nuevo enlace:</p>
+            {% include 'home/partials/resend_form.html' %}
+            <p class="account-switch"><a href="{% url 'home:login' %}">Volver a iniciar sesión</a></p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

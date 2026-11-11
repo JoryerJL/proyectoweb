@@ -105,6 +105,12 @@ class Perfil(models.Model):
     foto_perfil = models.ForeignKey(Archivo, null=True, blank=True, on_delete=models.SET_NULL)
     apellido_paterno = models.CharField(max_length=80, blank=True)
     apellido_materno = models.CharField(max_length=80, blank=True)
+    # Separate from User.is_active, which the panel uses to block accounts.
+    # Defaults to True so profiles created by any path (get_or_create, admin, ORM) never lock anyone out;
+    # only SignUpForm.save marks a self-registered account as unverified.
+    email_verificado = models.BooleanField(default=True)
+    email_verificado_en = models.DateTimeField(null=True, blank=True)
+    verificacion_enviada_en = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'Perfil de {self.user.username}'

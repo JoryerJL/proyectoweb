@@ -1,0 +1,17 @@
+{% extends 'partials/base.html' %}
+{% block title %}Enlace no válido{% endblock %}
+
+{% block content %}
+<div class="account-page">
+    <div class="account-card account-card-sm">
+        <div class="account-form">
+            <h1>Enlace no válido</h1>
+            <div class="alert alert-error" role="alert"><div class="alert-body">El enlace de verificación no es válido, ya fue usado o expiró.</div></div>
+            {% include 'partials/messages.html' %}
+            <p>Solicita uno nuevo:</p>
+            {% include 'home/partials/resend_form.html' %}
+            <p class="account-switch"><a href="{% url 'home:login' %}">Volver a iniciar sesión</a></p>
+        </div>
+    </div>
+</div>
+{% endblock content %}
