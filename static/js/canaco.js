@@ -170,4 +170,25 @@
   document.querySelector("[data-category-select]")?.addEventListener("change", (event) => {
     if (event.target.value) window.location.href = event.target.value;
   });
+
+  // Welcome modal: shown once per browser. Storage may throw (private mode, blocked cookies).
+  const welcome = document.querySelector("[data-welcome-modal]");
+  if (welcome && typeof welcome.showModal === "function") {
+    const SEEN_KEY = "canaco:welcome-seen";
+    let seen = false;
+    try { seen = localStorage.getItem(SEEN_KEY) === "1"; } catch (_) { /* ignore */ }
+
+    if (!seen) {
+      welcome.querySelectorAll("[data-welcome-close]").forEach((button) => {
+        button.addEventListener("click", () => welcome.close());
+      });
+      // Clicking the backdrop (outside the dialog box) closes it.
+      welcome.addEventListener("click", (event) => {
+        if (event.target === welcome) welcome.close();
+      });
+      welcome.showModal();
+      // Mark as seen once shown, so leaving through a link (no "close" event) also counts.
+      try { localStorage.setItem(SEEN_KEY, "1"); } catch (_) { /* ignore */ }
+    }
+  }
 })();

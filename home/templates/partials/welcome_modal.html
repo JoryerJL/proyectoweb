@@ -1,0 +1,18 @@
+<dialog class="welcome-modal" id="welcome-modal" aria-labelledby="welcome-title" aria-describedby="welcome-text" data-welcome-modal>
+    <div class="welcome-body">
+        <button type="button" class="welcome-close" data-welcome-close aria-label="Cerrar">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+        <div class="welcome-icon" aria-hidden="true"><i class="bi bi-shop"></i></div>
+        <h2 id="welcome-title" class="welcome-title">¡Bienvenido a Canaco!</h2>
+        <p id="welcome-text" class="welcome-text">
+            Noticias, eventos e historias del comercio local, todo en un solo lugar.
+        </p>
+        <div class="welcome-actions">
+            <button type="button" class="btn btn-primary" data-welcome-close autofocus>
+                Explorar noticias <i class="bi bi-arrow-right" aria-hidden="true"></i>
+            </button>
+            <a href="{% url 'home:contactanos' %}" class="btn btn-soft">Contáctanos</a>
+        </div>
+    </div>
+</dialog>
