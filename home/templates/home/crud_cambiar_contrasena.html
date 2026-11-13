@@ -14,7 +14,7 @@
     {% include 'partials/messages.html' %}
     {% include 'partials/form_errors.html' %}
 
-    <form method="POST" class="profile-edit-form">
+    <form method="POST" class="profile-edit-form" data-ajax data-ajax-action="none" data-ajax-reset>
         {% csrf_token %}
         <div class="field profile-form-row">
             <label for="old_password">Contraseña actual</label>
@@ -38,6 +38,7 @@
                 <button type="button" class="password-toggle" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
             </div>
         </div>
+        <div data-ajax-errors role="alert"></div>
         <div class="form-actions profile-form-actions">
             <button type="submit" class="btn btn-primary">Actualizar contraseña</button>
             <a href="{% url 'home:perfil' %}" class="btn btn-outline-secondary">Volver a mi perfil</a>

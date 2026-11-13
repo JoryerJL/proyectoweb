@@ -13,7 +13,7 @@
 {% include 'partials/form_errors.html' %}
 
 <div class="table-card">
-    <form method="POST" class="inline-form">
+    <form method="POST" class="inline-form" data-ajax data-ajax-action="prepend-row" data-target="#categorias-body" data-ajax-reset>
         {% csrf_token %}
         <label for="nueva-categoria" class="visually-hidden">Nombre de la nueva categoría</label>
         <input type="text" id="nueva-categoria" name="nombre" class="form-control" placeholder="Nombre de la nueva categoría" value="{{ form.nombre.value|default:'' }}" maxlength="60" required>
@@ -30,28 +30,29 @@
                     <th scope="col"><span class="visually-hidden">Acciones</span></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="categorias-body">
                 {% for categoria in categorias %}
-                <tr>
-                    <td class="cell-muted">{{ forloop.counter }}</td>
-                    <td class="cell-title">{{ categoria.nombre }}</td>
-                    <td class="cell-muted">{% if categoria.fk_user %}{{ categoria.fk_user.username }}{% else %}-{% endif %}</td>
-                    <td class="cell-muted">{{ categoria.createdat|date:"Y-m-d H:i" }}</td>
-                    <td>
-                        <div class="row-actions">
-                            <a href="{% url 'home:editar_categoria' categoria.id %}" class="btn btn-ghost">Editar</a>
-                            <form method="post" action="{% url 'home:eliminar_categoria' categoria.id %}" data-confirm="¿Eliminar la categoría «{{ categoria.nombre }}»?">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr class="table-empty"><td colspan="5">No hay categorías aún. Agrega la primera arriba.</td></tr>
+                {% include 'home/partials/categoria_row.html' %}
                 {% endfor %}
+                <tr class="table-empty" data-empty{% if categorias %} hidden{% endif %}><td colspan="5">No hay categorías aún. Agrega la primera arriba.</td></tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<dialog class="ajax-dialog" id="categoria-dialog" aria-labelledby="categoria-dialog-title">
+    <form method="post" action="" data-ajax data-ajax-action="replace-row">
+        {% csrf_token %}
+        <h2 id="categoria-dialog-title" data-dialog-title>Editar categoría</h2>
+        <div class="field">
+            <label for="categoria-dialog-nombre">Nombre</label>
+            <input type="text" id="categoria-dialog-nombre" name="nombre" maxlength="60" required>
+        </div>
+        <div data-ajax-errors role="alert"></div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" data-dialog-submit>Guardar cambios</button>
+            <button type="button" class="btn btn-outline-secondary" data-dialog-close>Cancelar</button>
+        </div>
+    </form>
+</dialog>
 {% endblock content %}

@@ -7,7 +7,7 @@
         <h1>Gestión de usuarios</h1>
         <p>Crea, edita, bloquea o elimina cuentas del sistema.</p>
     </div>
-    <a href="{% url 'home:crear_usuario' %}" class="btn btn-primary">
+    <a href="{% url 'home:crear_usuario' %}" class="btn btn-primary" data-dialog-open="#usuario-dialog" data-dialog-mode="create" data-form-action="{% url 'home:crear_usuario' %}" data-ajax-action="append-row" data-target="#usuarios-body" data-dialog-title="Crear usuario" data-dialog-submit="Crear usuario" data-field-rol="{{ rol_actual }}">
         <i class="bi bi-person-plus" aria-hidden="true"></i> Crear usuario
     </a>
 </div>
@@ -28,42 +28,27 @@
                     <th scope="col"><span class="visually-hidden">Acciones</span></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="usuarios-body">
                 {% for user in usuarios %}
-                <tr>
-                    <td class="cell-muted">{{ forloop.counter }}</td>
-                    <td><span class="cell-user"><span class="avatar {% cycle 'avatar--brand' 'avatar--mint' '' %}">{{ user.username|first }}</span>{{ user.username }}</span></td>
-                    <td>{{ user.first_name|default:"-" }}</td>
-                    <td class="cell-muted">{{ user.email|default:"-" }}</td>
-                    <td>
-                        <span class="chip {% if user.rol.value == 'editor' %}chip--mint{% elif user.rol.value == 'colaborador' %}chip--sun{% endif %}">{{ user.rol.label }}</span>
-                    </td>
-                    <td>
-                        {% if user.is_active %}
-                        <span class="badge badge-success"><i class="bi bi-check-circle" aria-hidden="true"></i> Activo</span>
-                        {% else %}
-                        <span class="badge badge-danger"><i class="bi bi-lock" aria-hidden="true"></i> Bloqueado</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="row-actions">
-                            <a href="{% url 'home:editar_usuario' user.id %}" class="btn btn-ghost">Editar</a>
-                            <form method="post" action="{% url 'home:bloquear_usuario' user.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost">{% if user.is_active %}Bloquear{% else %}Desbloquear{% endif %}</button>
-                            </form>
-                            <form method="post" action="{% url 'home:eliminar_usuario' user.id %}" data-confirm="¿Eliminar la cuenta de {{ user.username }}? Esta acción no se puede deshacer.">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr class="table-empty"><td colspan="7">No hay usuarios registrados.</td></tr>
+                {% include 'home/partials/usuario_row.html' %}
                 {% endfor %}
+                <tr class="table-empty" data-empty{% if usuarios %} hidden{% endif %}><td colspan="7">No hay usuarios registrados.</td></tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<dialog class="ajax-dialog ajax-dialog--wide" id="usuario-dialog" aria-labelledby="usuario-dialog-title">
+    <form method="post" action="{% url 'home:crear_usuario' %}" class="profile-edit-form" data-ajax data-ajax-action="append-row" data-target="#usuarios-body">
+        {% csrf_token %}
+        <h2 id="usuario-dialog-title" data-dialog-title>Crear usuario</h2>
+        {% include 'home/partials/usuario_form_fields.html' %}
+        <p class="field-hint" data-dialog-edit-only hidden>Deja la contraseña vacía para conservar la actual.</p>
+        <div data-ajax-errors role="alert"></div>
+        <div class="form-actions profile-form-actions">
+            <button type="submit" class="btn btn-success" data-dialog-submit>Crear usuario</button>
+            <button type="button" class="btn btn-outline-secondary" data-dialog-close>Cancelar</button>
+        </div>
+    </form>
+</dialog>
 {% endblock content %}

@@ -1267,3 +1267,25 @@ input[type="file"]::file-selector-button {
 @media (prefers-reduced-motion: reduce) {
   .welcome-modal[open] { animation: none; }
 }
+
+/* Panel AJAX: flash region, inline errors, dialogs --------------------- */
+
+.flash-region {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
+  width: min(26rem, calc(100vw - 2rem)); outline: none;
+}
+.flash-region .alert { margin: 0; box-shadow: 0 10px 30px rgba(27, 42, 68, 0.18); }
+.field-error { margin: 0.35rem 0 0; color: var(--rojo-ink); font-size: 0.875rem; font-weight: 600; }
+[data-ajax-errors]:not(:empty) { margin: 0.75rem 0; }
+.field input[aria-invalid="true"] { border-color: var(--rojo-ink); }
+form[aria-busy="true"] { cursor: progress; }
+
+.ajax-dialog {
+  width: min(32rem, calc(100vw - 2rem)); padding: 1.5rem; border: 0;
+  border-radius: var(--radius); background: var(--surface, #fff); color: var(--ink);
+  box-shadow: 0 24px 60px rgba(20, 33, 61, 0.3);
+}
+.ajax-dialog--wide { width: min(44rem, calc(100vw - 2rem)); }
+.ajax-dialog::backdrop { background: rgba(20, 33, 61, 0.45); backdrop-filter: blur(3px); }
+.ajax-dialog h2 { margin: 0 0 1rem; font-size: 1.35rem; }
+.ajax-dialog[open] { max-height: calc(100vh - 2rem); overflow-y: auto; }

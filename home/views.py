@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import wraps
 from pathlib import Path
 
 from django.conf import settings
@@ -14,7 +15,8 @@ from django.core.files.storage import default_storage
 from django.core.mail import send_mail
 from django.db import connection
 from django.db.models import F, Prefetch, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.encoding import force_str
@@ -45,6 +47,62 @@ from .sanitize import clean_html
 from .tokens import email_verification_token, issued_while_unverified_token
 
 logger = logging.getLogger(__name__)
+
+
+def is_ajax(request):
+    """True for fetch() calls from canaco.js (same header the infinite scroll sends)."""
+    return request.headers.get('X-Requested-With') == 'fetch'
+
+
+def json_ok(message, **extra):
+    return JsonResponse({'ok': True, 'message': message, **extra})
+
+
+def json_error(message, errors=None, status=400):
+    return JsonResponse({'ok': False, 'message': message, 'errors': errors or {}}, status=status)
+
+
+def json_form_error(form, message='Revisa los campos marcados.'):
+    return json_error(message, form.errors.get_json_data())
+
+
+def ajax_not_found(view):
+    """AJAX callers get a JSON 404 (stale row) instead of the HTML error page."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        try:
+            return view(request, *args, **kwargs)
+        except Http404:
+            if is_ajax(request):
+                return json_error('El registro ya no existe.', status=404)
+            raise
+    return wrapper
+
+
+def _row(request, template, **context):
+    return render_to_string(f'home/partials/{template}', context, request=request)
+
+
+def _categoria_row(request, categoria):
+    return _row(request, 'categoria_row.html', categoria=categoria)
+
+
+def _comentario_row(request, comentario):
+    return _row(request, 'comentario_row.html', comentario=comentario)
+
+
+def _usuario_row(request, usuario):
+    usuario = User.objects.select_related('perfil').prefetch_related('groups').get(pk=usuario.pk)
+    usuario.rol = roles.get_user_role(usuario)
+    return _row(request, 'usuario_row.html', user=usuario)
+
+
+def _usuario_form_context(form, rol_actual=None):
+    return {
+        'form': form,
+        'roles': roles.ROLES,
+        'rol_actual': form['rol'].value() or rol_actual or roles.DEFAULT_ROLE,
+    }
 
 
 def guardar_archivo(upload, user):
@@ -274,6 +332,25 @@ def perfil(request):
     return render(request, 'home/perfil.html', {'perfil_usuario': perfil_usuario})
 
 
+def _perfil_bindings(user, perfil):
+    """Values canaco.js writes into ``[data-bind]`` / ``[data-bind-src]`` after a profile update."""
+    foto = perfil.foto_perfil
+    bindings = {
+        'bind': {
+            'profile-username': user.username,
+            'profile-initial': user.username[:1],
+            'profile-first-name': user.first_name,
+            'profile-display-name': user.first_name or user.username,
+            'profile-email': user.email,
+            'profile-apellido-paterno': perfil.apellido_paterno,
+            'profile-apellido-materno': perfil.apellido_materno,
+        },
+    }
+    if foto:
+        bindings['bind_src'] = {'profile-photo': foto.display_url}
+    return bindings
+
+
 @login_required
 def crud_perfil(request):
     user = request.user
@@ -304,8 +381,12 @@ def crud_perfil(request):
 
             perfil.save()
 
+            if is_ajax(request):
+                return json_ok('Perfil actualizado correctamente.', **_perfil_bindings(user, perfil))
             messages.success(request, 'Perfil actualizado correctamente.')
             return redirect('home:perfil')
+        if is_ajax(request):
+            return json_form_error(form)
         return render(request, 'home/crud_perfil.html', {'perfil_usuario': perfil, 'form': form})
 
     return render(request, 'home/crud_perfil.html', {'perfil_usuario': perfil})
@@ -317,8 +398,12 @@ def crud_cambiar_contrasena(request):
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         update_session_auth_hash(request, user)
+        if is_ajax(request):
+            return json_ok('Contraseña actualizada correctamente.')
         messages.success(request, 'Contraseña actualizada correctamente.')
         return redirect('home:crud_cambiar_contrasena')
+    if request.method == 'POST' and is_ajax(request):
+        return json_form_error(form)
     return render(request, 'home/crud_cambiar_contrasena.html', {'form': form})
 
 
@@ -409,27 +494,36 @@ def crud_comentarios(request):
 
 @require_POST
 @perm_required('home.change_comentario')
+@ajax_not_found
 def aprobar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     comentario.estado = Comentario.ESTADO_APROBADO
     comentario.save()
+    if is_ajax(request):
+        return json_ok('Comentario aprobado.', id=comentario.pk, html=_comentario_row(request, comentario))
     return redirect('home:crud_comentarios')
 
 
 @require_POST
 @perm_required('home.change_comentario')
+@ajax_not_found
 def bloquear_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     comentario.estado = Comentario.ESTADO_BLOQUEADO
     comentario.save()
+    if is_ajax(request):
+        return json_ok('Comentario bloqueado.', id=comentario.pk, html=_comentario_row(request, comentario))
     return redirect('home:crud_comentarios')
 
 
 @require_POST
 @perm_required('home.delete_comentario')
+@ajax_not_found
 def eliminar_comentario(request, pk):
     comentario = get_object_or_404(Comentario, pk=pk)
     comentario.delete()
+    if is_ajax(request):
+        return json_ok('Comentario eliminado.', id=pk, removed=True)
     return redirect('home:crud_comentarios')
 
 
@@ -446,21 +540,32 @@ def crud_categorias(request):
             categoria = form.save(commit=False)
             categoria.fk_user = request.user
             categoria.save()
+            if is_ajax(request):
+                return json_ok('Categoría agregada correctamente.', id=categoria.pk,
+                               html=_categoria_row(request, categoria))
             messages.success(request, 'Categoría agregada correctamente.')
             return redirect('home:crud_categorias')
+        if is_ajax(request):
+            return json_form_error(form)
     categorias = Categoria.objects.all().order_by('-createdat')
     return render(request, 'home/crud_categorias.html', {'categorias': categorias, 'form': form})
 
 
 @perm_required('home.change_categoria')
+@ajax_not_found
 def editar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
     if request.method == 'POST':
         form = CategoriaForm(request.POST, instance=categoria)
         if form.is_valid():
             form.save()
+            if is_ajax(request):
+                return json_ok('Categoría actualizada correctamente.', id=categoria.pk,
+                               html=_categoria_row(request, categoria))
             messages.success(request, 'Categoría actualizada correctamente.')
             return redirect('home:crud_categorias')
+        if is_ajax(request):
+            return json_form_error(form)
     else:
         form = CategoriaForm(instance=categoria)
     return render(request, 'home/editar_categoria.html', {'categoria': categoria, 'form': form})
@@ -468,9 +573,12 @@ def editar_categoria(request, pk):
 
 @require_POST
 @perm_required('home.delete_categoria')
+@ajax_not_found
 def eliminar_categoria(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
     categoria.delete()
+    if is_ajax(request):
+        return json_ok('Categoría eliminada correctamente.', id=pk, removed=True)
     messages.success(request, 'Categoría eliminada correctamente.')
     return redirect('home:crud_categorias')
 
@@ -493,24 +601,26 @@ def crud_usuarios(request):
         usuarios = load()
     for usuario in usuarios:
         usuario.rol = roles.get_user_role(usuario)
-    return render(request, 'home/crud_usuarios.html', {'usuarios': usuarios})
+    form = UsuarioCreateForm(initial={'rol': roles.DEFAULT_ROLE})
+    return render(request, 'home/crud_usuarios.html', {'usuarios': usuarios, **_usuario_form_context(form)})
 
 
 @perm_required('auth.add_user')
 def crear_usuario(request):
     form = UsuarioCreateForm(request.POST or None, initial={'rol': roles.DEFAULT_ROLE})
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        usuario = form.save()
+        if is_ajax(request):
+            return json_ok('Usuario creado correctamente.', id=usuario.pk, html=_usuario_row(request, usuario))
         messages.success(request, 'Usuario creado correctamente.')
         return redirect('home:crud_usuarios')
-    return render(request, 'home/crear_usuario.html', {
-        'form': form,
-        'roles': roles.ROLES,
-        'rol_actual': form['rol'].value() or roles.DEFAULT_ROLE,
-    })
+    if request.method == 'POST' and is_ajax(request):
+        return json_form_error(form)
+    return render(request, 'home/crear_usuario.html', _usuario_form_context(form))
 
 
 @perm_required('auth.change_user')
+@ajax_not_found
 def editar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     perfil, _ = Perfil.objects.get_or_create(user=usuario)
@@ -526,32 +636,45 @@ def editar_usuario(request, pk):
     form = UsuarioEditForm(request.POST or None, instance=usuario, initial=initial)
     if request.method == 'POST' and form.is_valid():
         form.save()
+        if is_ajax(request):
+            return json_ok('Usuario actualizado correctamente.', id=usuario.pk, html=_usuario_row(request, usuario))
         messages.success(request, 'Usuario actualizado correctamente.')
         return redirect('home:crud_usuarios')
+    if request.method == 'POST' and is_ajax(request):
+        return json_form_error(form)
     return render(request, 'home/crear_usuario.html', {
-        'form': form,
+        **_usuario_form_context(form, rol_actual),
         'usuario_editado': usuario,
-        'roles': roles.ROLES,
-        'rol_actual': form['rol'].value() or rol_actual,
     })
 
 
 @require_POST
 @perm_required('auth.change_user')
+@ajax_not_found
 def bloquear_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
+    if usuario == request.user and is_ajax(request):
+        return json_error('No puedes bloquear tu propia cuenta.')
     if usuario != request.user:
         usuario.is_active = not usuario.is_active
         usuario.save()
+        if is_ajax(request):
+            message = 'Usuario desbloqueado.' if usuario.is_active else 'Usuario bloqueado.'
+            return json_ok(message, id=usuario.pk, html=_usuario_row(request, usuario))
     return redirect('home:crud_usuarios')
 
 
 @require_POST
 @perm_required('auth.delete_user')
+@ajax_not_found
 def eliminar_usuario(request, pk):
     usuario = get_object_or_404(User, pk=pk)
+    if usuario == request.user and is_ajax(request):
+        return json_error('No puedes eliminar tu propia cuenta.')
     if usuario != request.user:
         usuario.delete()
+        if is_ajax(request):
+            return json_ok('Usuario eliminado.', id=pk, removed=True)
     return redirect('home:crud_usuarios')
 
 

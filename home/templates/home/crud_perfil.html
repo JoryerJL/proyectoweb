@@ -6,7 +6,7 @@
 <div class="panel-head">
     <div>
         <h1>Editar mi perfil</h1>
-        <p>Estos datos pertenecen a tu cuenta actual: <strong>{{ request.user.username|default:"usuario" }}</strong>.</p>
+        <p>Estos datos pertenecen a tu cuenta actual: <strong data-bind="profile-username">{{ request.user.username|default:"usuario" }}</strong>.</p>
     </div>
 </div>
 
@@ -14,14 +14,14 @@
     {% include 'partials/messages.html' %}
     {% include 'partials/form_errors.html' %}
 
-    <form method="POST" enctype="multipart/form-data" class="profile-edit-form">
+    <form method="POST" enctype="multipart/form-data" class="profile-edit-form" data-ajax data-ajax-action="none">
         {% csrf_token %}
 
         <div class="photo-row profile-photo-wrap">
             {% if perfil_usuario.foto_perfil %}
-            <img src="{{ perfil_usuario.foto_perfil.display_url }}" alt="Foto de perfil" class="profile-photo profile-photo-sm">
+            <img src="{{ perfil_usuario.foto_perfil.display_url }}" alt="Foto de perfil" class="profile-photo profile-photo-sm" data-bind-src="profile-photo">
             {% else %}
-            <img src="{% static 'uploads/profile-default.jpg' %}" alt="Foto de perfil" class="profile-photo profile-photo-sm">
+            <img src="{% static 'uploads/profile-default.jpg' %}" alt="Foto de perfil" class="profile-photo profile-photo-sm" data-bind-src="profile-photo">
             {% endif %}
             <div class="field mb-0" style="flex:1">
                 <label for="foto">Foto de perfil</label>
@@ -55,6 +55,7 @@
             </div>
         </div>
 
+        <div data-ajax-errors role="alert"></div>
         <div class="form-actions profile-form-actions">
             <button type="submit" class="btn btn-primary">Guardar cambios</button>
             <a href="{% url 'home:perfil' %}" class="btn btn-outline-secondary">Cancelar</a>

@@ -19,8 +19,8 @@
                         {% endif %}
                     </div>
                     <div>
-                        <h2>{{ request.user.first_name|default:request.user.username|default:"Tu nombre" }}</h2>
-                        <span>@{{ request.user.username|default:"usuario" }}</span>
+                        <h2 data-bind="profile-display-name">{{ request.user.first_name|default:request.user.username|default:"Tu nombre" }}</h2>
+                        <span>@<span data-bind="profile-username">{{ request.user.username|default:"usuario" }}</span></span>
                     </div>
                 </div>
                 <div class="profile-actions">
