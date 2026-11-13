@@ -2,9 +2,9 @@
 {% with current=request.resolver_match.url_name %}
 <aside class="panel-sidebar" aria-label="Panel de administración">
     <div class="panel-user">
-        <span class="avatar avatar--lg">{{ request.user.username|default:"C"|first }}</span>
+        <span class="avatar avatar--lg" data-bind="profile-initial">{{ request.user.username|default:"C"|first }}</span>
         <div>
-            <strong>{{ request.user.username|default:"Invitado" }}</strong>
+            <strong data-bind="profile-username">{{ request.user.username|default:"Invitado" }}</strong>
             <span>
                 {{ user_role.label|default:"Sin sesión" }}
             </span>

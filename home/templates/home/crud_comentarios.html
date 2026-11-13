@@ -26,40 +26,9 @@
             </thead>
             <tbody>
                 {% for comentario in comentarios %}
-                <tr>
-                    <td><span class="cell-user"><span class="avatar avatar--mint">{{ comentario.user.username|first }}</span>{{ comentario.user.username }}</span></td>
-                    <td class="cell-muted">{{ comentario.publicacion.titulo|truncatewords:5 }}</td>
-                    <td class="cell-muted">{{ comentario.createdat|date:"Y-m-d H:i" }}</td>
-                    <td class="cell-text">{{ comentario.contenido }}</td>
-                    <td>
-                        {% if comentario.estado == 'aprobado' %}
-                        <span class="badge badge-success"><i class="bi bi-check-circle" aria-hidden="true"></i> Aprobado</span>
-                        {% elif comentario.estado == 'bloqueado' %}
-                        <span class="badge badge-danger"><i class="bi bi-slash-circle" aria-hidden="true"></i> Bloqueado</span>
-                        {% else %}
-                        <span class="badge badge-warning"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Pendiente</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="row-actions">
-                            <form method="post" action="{% url 'home:aprobar_comentario' comentario.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost is-success">Aprobar</button>
-                            </form>
-                            <form method="post" action="{% url 'home:bloquear_comentario' comentario.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost">Bloquear</button>
-                            </form>
-                            <form method="post" action="{% url 'home:eliminar_comentario' comentario.id %}" data-confirm="¿Eliminar este comentario?">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost is-danger" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar</span></button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr class="table-empty"><td colspan="6">No hay comentarios por revisar.</td></tr>
+                {% include 'home/partials/comentario_row.html' %}
                 {% endfor %}
+                <tr class="table-empty" data-empty{% if comentarios %} hidden{% endif %}><td colspan="6">No hay comentarios por revisar.</td></tr>
             </tbody>
         </table>
     </div>

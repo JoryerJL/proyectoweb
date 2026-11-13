@@ -34,8 +34,8 @@
 
             {% if request.user.is_authenticated %}
             <a href="{% url 'home:perfil' %}" class="user-pill">
-                <span class="avatar">{{ request.user.username|first }}</span>
-                {{ request.user.username }}
+                <span class="avatar" data-bind="profile-initial">{{ request.user.username|first }}</span>
+                <span data-bind="profile-username">{{ request.user.username }}</span>
             </a>
             <form method="post" action="{% url 'home:logout' %}">
                 {% csrf_token %}
