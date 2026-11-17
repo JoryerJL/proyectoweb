@@ -12,7 +12,6 @@ from . import roles
 from .context_processors import ga_measurement_id
 from .tests import make_user
 
-GTAG_SRC = 'https://www.googletagmanager.com/gtag/js?id=G-TEST123ABC'
 MALICIOUS = 'G-1"><script>alert(1)</script>'
 
 
@@ -43,27 +42,29 @@ class SnippetRenderingTests(TestCase):
     @override_settings(GA_MEASUREMENT_ID='G-TEST123ABC')
     def test_public_page_has_snippet(self):
         html = self.client.get(reverse('home:index')).content.decode()
-        self.assertIn(GTAG_SRC, html)
-        self.assertIn(r"gtag('config', 'G\u002DTEST123ABC')", html)
+        self.assertNotIn('googletagmanager.com/gtag/js', html)
+        self.assertIn('data-ga-id="G-TEST123ABC"', html)
+        self.assertIn("gtag('consent', 'default'", html)
         self.assertIn('window.dataLayer', html)
 
     @override_settings(GA_MEASUREMENT_ID='G-TEST123ABC')
     def test_panel_page_has_snippet(self):
         self.client.login(username='admin1', password='Zq7!tR2#vLm9')
         html = self.client.get(reverse('home:crud_categorias')).content.decode()
-        self.assertIn(GTAG_SRC, html)
+        self.assertIn('data-ga-id="G-TEST123ABC"', html)
 
     @override_settings(GA_MEASUREMENT_ID='G-TEST123ABC')
     def test_404_page_has_snippet(self):
         response = self.client.get('/no-existe-xyz/')
         self.assertEqual(response.status_code, 404)
-        self.assertIn(GTAG_SRC, response.content.decode())
+        self.assertIn('data-ga-id="G-TEST123ABC"', response.content.decode())
 
     @override_settings(GA_MEASUREMENT_ID='')
     def test_absent_when_empty(self):
         html = self.client.get(reverse('home:index')).content.decode()
         self.assertNotIn('googletagmanager', html)
         self.assertNotIn('gtag(', html)
+        self.assertNotIn('data-ga-id', html)
         self.client.login(username='admin1', password='Zq7!tR2#vLm9')
         panel = self.client.get(reverse('home:crud_categorias')).content.decode()
         self.assertNotIn('googletagmanager', panel)
@@ -96,6 +97,7 @@ class PanelEventScriptTests(TestCase):
 
     def test_panel_action_event_is_guarded_and_pii_free(self):
         self.assertIn("typeof window.gtag !== \"function\"", self.js)
+        self.assertIn('gaLoaded', self.js)
         self.assertIn('"panel_action"', self.js)
 
 
@@ -113,11 +115,13 @@ class VerificationTokenLeakTests(TestCase):
         response = self.client.get(reverse('home:verificar_email', args=[uid, 'bad-token']))
         self.assertEqual(response.status_code, 400)
         self.assertNotIn('googletagmanager', response.content.decode())
+        self.assertNotIn('data-ga-id', response.content.decode())
 
     def test_bad_uid_page_has_no_gtag(self):
         response = self.client.get(reverse('home:verificar_email', args=['xx', 'bad-token']))
         self.assertEqual(response.status_code, 400)
         self.assertNotIn('googletagmanager', response.content.decode())
+        self.assertNotIn('data-ga-id', response.content.decode())
 
     def test_verified_user_bad_token_page_has_no_gtag(self):
         user = make_user('verified1', roles.ADMINISTRADOR, email='v1@example.com')
@@ -129,6 +133,7 @@ class VerificationTokenLeakTests(TestCase):
         response = self.client.get(reverse('home:verificar_email', args=[uid, 'bad-token']))
         self.assertEqual(response.status_code, 400)
         self.assertNotIn('googletagmanager', response.content.decode())
+        self.assertNotIn('data-ga-id', response.content.decode())
 
     def test_normal_public_page_still_has_gtag(self):
-        self.assertIn('googletagmanager', self.client.get(reverse('home:index')).content.decode())
+        self.assertIn('data-ga-id', self.client.get(reverse('home:index')).content.decode())

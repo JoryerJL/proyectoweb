@@ -172,6 +172,137 @@
     if (event.target.value) window.location.href = event.target.value;
   });
 
+  // ---------------------------------------------------------------------------
+  // Cookie consent (opt-in) gating Google Analytics 4. The server renders the Consent Mode
+  // v2 defaults (all denied) plus <meta data-ga-id>; gtag.js is only injected after "granted".
+  // Stored as localStorage["canaco.cookieConsent"] = {"v":1,"status":"granted|denied","ts":<ms>}.
+  // ---------------------------------------------------------------------------
+  const CONSENT_KEY = "canaco.cookieConsent";
+  const CONSENT_VERSION = 1;
+  let gaLoaded = false;       // true only while analytics consent is granted and GA is active
+  let gaScriptAdded = false;  // gtag.js is injected at most once per page
+
+  const readConsent = () => {
+    try {
+      const data = JSON.parse(localStorage.getItem(CONSENT_KEY));
+      if (data && data.v === CONSENT_VERSION && (data.status === "granted" || data.status === "denied")) {
+        return data.status;
+      }
+    } catch (_) { /* storage blocked or corrupt value: treat as no choice */ }
+    return null;
+  };
+
+  const writeConsent = (status) => {
+    try {
+      localStorage.setItem(CONSENT_KEY, JSON.stringify({ v: CONSENT_VERSION, status, ts: Date.now() }));
+    } catch (_) { /* private mode: choice is not persisted, the banner returns next visit */ }
+  };
+
+  // Best effort: remove _ga / _ga_<suffix> for the current host and its parent domains.
+  const deleteGaCookies = () => {
+    const names = document.cookie.split(";")
+      .map((part) => part.split("=")[0].trim())
+      .filter((name) => name === "_ga" || /^_ga_[A-Za-z0-9]+$/.test(name));
+    const parts = window.location.hostname.split(".");
+    const domains = [""];
+    for (let i = 0; i < parts.length - 1; i++) {
+      const domain = parts.slice(i).join(".");
+      domains.push(domain, "." + domain);
+    }
+    names.forEach((name) => {
+      domains.forEach((domain) => {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/` +
+          (domain ? `; domain=${domain}` : "");
+      });
+    });
+  };
+
+  const enableGa = (id) => {
+    if (typeof window.gtag !== "function") return;
+    // Re-enable GA's kill switch (set on revoke) before any config call.
+    window["ga-disable-" + id] = false;
+    window.gtag("consent", "update", { analytics_storage: "granted" });
+    if (!gaScriptAdded) {
+      gaScriptAdded = true;
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+      document.head.appendChild(script);
+      window.gtag("js", new Date());
+      window.gtag("config", id);
+    }
+    gaLoaded = true;
+  };
+
+  const disableGa = (id) => {
+    gaLoaded = false;
+    // gtag.js may already be running (cookieless pings in Consent Mode): hard-stop it.
+    window["ga-disable-" + id] = true;
+    if (typeof window.gtag === "function") window.gtag("consent", "update", { analytics_storage: "denied" });
+    deleteGaCookies();
+  };
+
+  const gaId = document.querySelector("meta[data-ga-id]")?.dataset.gaId;
+  if (gaId) {
+    const banner = document.querySelector("[data-cookie-banner]");
+    let opener = null;  // footer button that reopened the banner, to restore focus afterwards
+
+    // Keep content and the toast region clear of the fixed banner while it is visible.
+    const syncBannerOffset = () => {
+      const visible = banner && !banner.hidden;
+      document.body.classList.toggle("has-cookie-banner", visible);
+      if (visible) document.documentElement.style.setProperty("--cookie-banner-height", banner.offsetHeight + "px");
+      else document.documentElement.style.removeProperty("--cookie-banner-height");
+    };
+    if (banner && typeof ResizeObserver === "function") new ResizeObserver(syncBannerOffset).observe(banner);
+    window.addEventListener("resize", syncBannerOffset);
+
+    const showBanner = (focusIt) => {
+      if (!banner) return;
+      banner.hidden = false;
+      syncBannerOffset();
+      if (focusIt) banner.focus();
+    };
+    const hideBanner = () => {
+      if (!banner) return;
+      banner.hidden = true;
+      syncBannerOffset();
+    };
+    const apply = (status) => {
+      if (status === "granted") enableGa(gaId); else disableGa(gaId);
+    };
+    const choose = (status) => {
+      writeConsent(status);
+      apply(status);
+      hideBanner();
+      if (opener?.isConnected) opener.focus();
+      opener = null;
+    };
+
+    const stored = readConsent();
+    if (stored === "granted") enableGa(gaId);
+    else if (stored === null) showBanner(false);  // never steal focus on first paint
+
+    // Another tab changed the choice, or the page came back from the bfcache: re-sync.
+    const resync = () => {
+      const status = readConsent();
+      if (status === null) return;
+      apply(status);
+      hideBanner();
+      opener = null;
+    };
+    window.addEventListener("storage", (event) => {
+      if (event.key === CONSENT_KEY || event.key === null) resync();
+    });
+    window.addEventListener("pageshow", (event) => { if (event.persisted) resync(); });
+
+    banner?.querySelector("[data-cookie-accept]")?.addEventListener("click", () => choose("granted"));
+    banner?.querySelector("[data-cookie-reject]")?.addEventListener("click", () => choose("denied"));
+    document.querySelectorAll("[data-cookie-preferences]").forEach((button) => {
+      button.addEventListener("click", () => { opener = button; showBanner(true); });
+    });
+  }
+
   // Welcome modal: shown once per browser. Storage may throw (private mode, blocked cookies).
   const welcome = document.querySelector("[data-welcome-modal]");
   if (welcome && typeof welcome.showModal === "function") {
@@ -350,7 +481,7 @@
   // GA4 event for a successful panel action. No-op when GA is absent. Sends only the
   // action type and the section name (derived from the URL), never record ids or form values.
   const trackPanelAction = (form) => {
-    if (typeof window.gtag !== "function") return;
+    if (typeof window.gtag !== "function" || !gaLoaded) return;
     try {
       const path = new URL(form.getAttribute("action") || window.location.href, window.location.href).pathname;
       const match = path.match(/^\/(?:panel\/([a-z_-]+)|(perfil))/);

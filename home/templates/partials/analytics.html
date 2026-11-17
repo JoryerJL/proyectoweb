@@ -1,9 +1,14 @@
 {% if ga_measurement_id %}
-<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_measurement_id|urlencode }}"></script>
+{# Consent Mode v2 (basic): everything denied until the visitor opts in. gtag.js itself is injected by canaco.js after consent. #}
 <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', '{{ ga_measurement_id|escapejs }}');
+    gtag('consent', 'default', {
+        'analytics_storage': 'denied',
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied'
+    });
 </script>
+<meta name="ga-measurement-id" data-ga-id="{{ ga_measurement_id }}" content="">
 {% endif %}

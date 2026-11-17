@@ -19,6 +19,7 @@ urlpatterns = [
     path("categoria/<int:pk>/", views.categoria_por_pk, name="categoria_pk"),
     path("categoria/<slug:slug>/", views.categoria, name="categoria_detalle"),
     path("contactanos/", views.contactanos, name="contactanos"),
+    path("cookies/", views.cookies, name="cookies"),
     path(
         "login/",
         auth_views.LoginView.as_view(
