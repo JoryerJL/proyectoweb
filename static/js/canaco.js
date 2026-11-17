@@ -347,6 +347,18 @@
     if (focusIt) { box.tabIndex = -1; box.focus(); }
   };
 
+  // GA4 event for a successful panel action. No-op when GA is absent. Sends only the
+  // action type and the section name (derived from the URL), never record ids or form values.
+  const trackPanelAction = (form) => {
+    if (typeof window.gtag !== "function") return;
+    try {
+      const path = new URL(form.getAttribute("action") || window.location.href, window.location.href).pathname;
+      const match = path.match(/^\/(?:panel\/([a-z_-]+)|(perfil))/);
+      const section = form.dataset.analyticsSection || (match ? match[1] || match[2] : "other");
+      window.gtag("event", "panel_action", { action: form.dataset.ajaxAction || "none", section });
+    } catch (_) { /* analytics must never break the UI */ }
+  };
+
   const submitAjax = async (form, submitter) => {
     if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
     if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -378,6 +390,7 @@
       }
       if (response.ok && data?.ok) {
         const focusTarget = applySuccess(form, data);
+        trackPanelAction(form);
         showFlash(data.message || "Cambios guardados.", "success");
         if (focusTarget) focusTarget.focus(); else focusFlash();
         return;
