@@ -56,7 +56,10 @@
 
         <div class="footer-bottom">
             <span>&copy; {% now "Y" %} Canaco. Todos los derechos reservados.</span>
-            <span><a href="#">Términos</a> &nbsp;·&nbsp; <a href="#">Privacidad</a></span>
+            <span>
+                <a href="#">Términos</a> &nbsp;·&nbsp; <a href="#">Privacidad</a> &nbsp;·&nbsp; <a href="{% url 'home:cookies' %}">Cookies</a>
+                {% if ga_measurement_id %}&nbsp;·&nbsp; <button type="button" class="footer-link-button" data-cookie-preferences>Preferencias de cookies</button>{% endif %}
+            </span>
         </div>
     </div>
 </footer>

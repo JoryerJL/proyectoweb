@@ -245,6 +245,10 @@ def categoria(request, slug=None):
     return response
 
 
+def cookies(request):
+    return render(request, 'home/cookies.html')
+
+
 def contactanos(request):
     form = ContactoForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():

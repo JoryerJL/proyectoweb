@@ -1,0 +1,31 @@
+{% extends 'partials/base.html' %}
+{% block title %}Política de cookies{% endblock %}
+{% block description %}Qué cookies usa Canaco, para qué sirven y cómo cambiar tu elección.{% endblock %}
+{% block content %}
+<section class="section" style="padding-top: clamp(2rem, 5vw, 3.5rem);">
+    <div class="container">
+        <div class="card cookies-page">
+            <h1>Política de cookies</h1>
+            <p>Este sitio usa Google Analytics 4 para obtener estadísticas anónimas de uso. Las cookies de analítica solo se activan si las aceptas en el aviso de cookies.</p>
+
+            <h2>Cookies de Google Analytics</h2>
+            <div class="table-wrap">
+                <table class="cookies-table">
+                    <thead>
+                        <tr><th scope="col">Cookie</th><th scope="col">Finalidad</th><th scope="col">Duración</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>_ga</code></td><td>Distingue a los visitantes para generar estadísticas de uso.</td><td>Hasta 2 años</td></tr>
+                        <tr><td><code>_ga_&lt;ID&gt;</code></td><td>Mantiene el estado de la sesión de Google Analytics 4 (el sufijo depende del identificador de la propiedad).</td><td>Hasta 2 años</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>La duración corresponde a los valores predeterminados de Google. Las señales de publicidad permanecen desactivadas en todo momento.</p>
+
+            <h2>Cómo cambiar tu elección</h2>
+            <p>Puedes aceptar o rechazar en cualquier momento con el botón <strong>Preferencias de cookies</strong> que aparece al final de cada página. Si cambias de aceptar a rechazar, se desactiva la analítica y se intentan borrar las cookies de Google Analytics de este navegador.</p>
+            <p>Tu elección se guarda únicamente en este navegador.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

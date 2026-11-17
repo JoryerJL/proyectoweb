@@ -1,0 +1,12 @@
+{% if ga_measurement_id %}
+<div class="cookie-banner" role="region" aria-label="Aviso de cookies" aria-describedby="cookie-banner-text" tabindex="-1" data-cookie-banner hidden>
+    <p id="cookie-banner-text" class="cookie-banner-text">
+        Usamos cookies de Google Analytics para conocer cómo se usa el sitio. Solo se activan si las aceptas.
+        <a href="{% url 'home:cookies' %}">Más información</a>
+    </p>
+    <div class="cookie-banner-actions">
+        <button type="button" class="btn btn-primary" data-cookie-accept>Aceptar</button>
+        <button type="button" class="btn btn-primary" data-cookie-reject>Rechazar</button>
+    </div>
+</div>
+{% endif %}
