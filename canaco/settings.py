@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-from .env import INSECURE_SECRET_KEY, env_bool, env_list, validate_email_tls, validate_production
+from .env import INSECURE_SECRET_KEY, env_bool, env_list, parse_ga_measurement_id, validate_email_tls, validate_production
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -107,6 +107,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'home.context_processors.global_categorias',
                 'home.context_processors.user_role',
+                'home.context_processors.ga_measurement_id',
             ],
         },
     },
@@ -230,6 +231,9 @@ EMAIL_SEND_ASYNC = not TESTING
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'Canaco <no-reply@localhost>')
 # Inbox that receives contact-form messages. Empty disables the notification email.
 CONTACT_EMAIL = os.environ.get('DJANGO_CONTACT_EMAIL', '')
+
+# Google Analytics 4 Measurement ID (G-XXXXXXXX). Empty or malformed disables analytics.
+GA_MEASUREMENT_ID = parse_ga_measurement_id(os.environ.get('GA_MEASUREMENT_ID', '').strip())
 
 # Number of news items loaded per page (and per infinite-scroll request).
 NEWS_PAGE_SIZE = 9

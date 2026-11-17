@@ -1,6 +1,7 @@
 """Helpers to read configuration from environment variables."""
 
 import os
+import re
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -38,3 +39,15 @@ def validate_email_tls(use_tls, use_ssl):
     """STARTTLS (587) and implicit TLS (465) are mutually exclusive."""
     if use_tls and use_ssl:
         raise ImproperlyConfigured('DJANGO_EMAIL_USE_TLS and DJANGO_EMAIL_USE_SSL cannot both be enabled.')
+
+
+_GA_ID_RE = re.compile(r'^G-[A-Z0-9]+$')
+
+
+def parse_ga_measurement_id(raw):
+    """Return a valid GA4 Measurement ID, or '' (analytics off) for empty/malformed values.
+
+    The value ends up inside a <script>, so anything not matching ``G-XXXXXXXX`` is dropped.
+    """
+    value = (raw or '').strip()
+    return value if _GA_ID_RE.fullmatch(value) else ''

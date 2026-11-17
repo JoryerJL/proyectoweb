@@ -280,6 +280,14 @@ def verificacion_enviada(request):
     return render(request, 'home/verificacion_enviada.html', {'form': ResendVerificationForm()})
 
 
+def _invalid_verification(request):
+    # The URL still carries uidb64+token: blank the GA ID so gtag never reports it as page_location.
+    return render(
+        request, 'home/verificacion_invalida.html',
+        {'form': ResendVerificationForm(), 'ga_measurement_id': ''}, status=400,
+    )
+
+
 def verificar_email(request, uidb64, token):
     try:
         user = User.objects.select_related('perfil').get(pk=force_str(urlsafe_base64_decode(uidb64)))
@@ -287,15 +295,15 @@ def verificar_email(request, uidb64, token):
         user = None
     perfil = getattr(user, 'perfil', None)
     if perfil is None:
-        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+        return _invalid_verification(request)
     if perfil.email_verificado:
         # A genuine link used twice is not an error; tampered or foreign tokens still get a 400.
         if issued_while_unverified_token.check_token(user, token):
             messages.info(request, 'Tu correo ya estaba verificado. Inicia sesión.')
             return redirect('home:login')
-        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+        return _invalid_verification(request)
     if not email_verification_token.check_token(user, token):
-        return render(request, 'home/verificacion_invalida.html', {'form': ResendVerificationForm()}, status=400)
+        return _invalid_verification(request)
     perfil.email_verificado = True
     perfil.email_verificado_en = timezone.now()
     perfil.save(update_fields=['email_verificado', 'email_verificado_en'])

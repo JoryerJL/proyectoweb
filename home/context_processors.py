@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Count, Q
 
@@ -35,3 +36,7 @@ def global_categorias(request):
 
 def user_role(request):
     return {'user_role': roles.get_user_role(request.user)}
+
+
+def ga_measurement_id(request):
+    return {'ga_measurement_id': settings.GA_MEASUREMENT_ID}
